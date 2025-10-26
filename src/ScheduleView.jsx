@@ -1,104 +1,115 @@
 import React, { useState } from 'react';
-import { Plus, Loader, Trash, X, Calendar } from 'lucide-react';
-import { useLocalScheduleData } from './useLocalScheduleData';
+import { Plus, Loader, Trash, X, Calendar, ChevronLeft, ChevronRight, Dot } from 'lucide-react';
+import { useScheduleData } from './useScheduleData';
+import * as api from './api';
 
-// Schedule View (Updated Component)
-const ScheduleView = () => {
-  const { bookings, loading, updateBookings } = useLocalScheduleData();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [newBooking, setNewBooking] = useState({
-    name: '',
-    type: 'Inbound',
-    dateTime: new Date().toISOString().substring(0, 16), // YYYY-MM-DDThh:mm format
-  });
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const handleBookingChange = (e) => {
-    const { name, value } = e.target;
-    setNewBooking(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleAddBooking = (e) => {
-    e.preventDefault();
-    if (!newBooking.name || !newBooking.dateTime) {
-      // In a real app, show an error message instead of console.error
-      console.error("Missing required fields.");
-      return;
-    }
-
-    const newEntry = {
-      id: Date.now().toString(),
-      ...newBooking,
-      status: 'Scheduled',
-    };
-
-    updateBookings([newEntry, ...bookings]);
-    setNewBooking({
-      name: '',
-      type: 'Inbound',
-      dateTime: new Date().toISOString().substring(0, 16),
-    });
-    setIsFormOpen(false);
-  };
-
-  const handleDeleteBooking = (id) => {
-    // Custom modal UI is preferred, but using window.confirm for now
-    if (!window.confirm("Are you sure you want to delete this booking?")) return;
-    const filtered = bookings.filter(b => b.id !== id);
-    updateBookings(filtered);
-  };
-
-  const BookingForm = () => (
-    <form onSubmit={handleAddBooking} className="bg-gray-700/50 p-6 rounded-xl space-y-4 border border-indigo-700">
-      <h3 className="text-xl font-semibold text-white">Add New Booking</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Pallet Name */}
+const BookingForm = ({
+  bookingToEdit,
+  newBooking,
+  bookingFormData,
+  onClose,
+  onSubmit,
+  onChange
+}) => (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <form onSubmit={onSubmit} className="bg-gray-800 w-full max-w-2xl p-6 rounded-xl space-y-4 border border-indigo-700 shadow-2xl">
+      <h3 className="text-xl font-semibold text-white">{bookingToEdit ? 'Update Booking' : 'Schedule a Booking'}</h3>
+      <div className="grid grid-cols-1 gap-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Client Name</label>
           <input
-            type="text"
-            id="name"
-            name="name"
-            value={newBooking.name}
-            onChange={handleBookingChange}
-            className="w-full p-2 rounded-lg bg-gray-800 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-            placeholder="e.g., Q4 Shipment / Vendor A"
-            required
-          />
-        </div>
-
-        {/* Type */}
-        <div>
-          <label htmlFor="type" className="block text-sm font-medium text-gray-300 mb-1">Booking Type</label>
-          <select
-            id="type"
-            name="type"
-            value={newBooking.type}
-            onChange={handleBookingChange}
-            className="w-full p-2 rounded-lg bg-gray-800 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="Inbound">Inbound (Receiving)</option>
-            <option value="Outbound">Outbound (Shipping)</option>
-          </select>
-        </div>
-
-        {/* Date/Time */}
-        <div>
-          <label htmlFor="dateTime" className="block text-sm font-medium text-gray-300 mb-1">Date & Time</label>
-          <input
-            type="datetime-local"
-            id="dateTime"
-            name="dateTime"
-            value={newBooking.dateTime}
-            onChange={handleBookingChange}
-            className="w-full p-2 rounded-lg bg-gray-800 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-            required
+            type="text" id="name" name="name" value={newBooking.name} onChange={onChange}
+            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="e.g., Q4 Shipment, Vendor A Pickup" required
           />
         </div>
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-300 mb-1">Booking Type</label>
+            <select
+              id="type" name="type" value={newBooking.type} onChange={onChange}
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="Inbound">Inbound</option>
+              <option value="Outbound">Outbound</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+            <input
+              type="date" id="date" name="date" value={bookingFormData.date} onChange={onChange}
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            />
+          </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="startTime" className="block text-sm font-medium text-gray-300 mb-1">Start Time</label>
+            <input
+              type="time" id="startTime" name="startTime" value={bookingFormData.startTime} onChange={onChange}
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="endTime" className="block text-sm font-medium text-gray-300 mb-1">End Time</label>
+            <input
+              type="time" id="endTime" name="endTime" value={bookingFormData.endTime} onChange={onChange}
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              min={bookingFormData.startTime}
+              required
+            />
+          </div>
+        </div>
+      {!bookingToEdit && (
+        <div className="border-t border-gray-700 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="repeat" className="block text-sm font-medium text-gray-300 mb-1">Repeat</label>
+            <select
+              id="repeat" name="repeat" value={newBooking.repeat} onChange={onChange}
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="none">Does not repeat</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+          {newBooking.repeat !== 'none' && (
+            <div className="md:col-span-1">
+              <label htmlFor="repeatCount" className="block text-sm font-medium text-gray-300 mb-1">For how many weeks?</label>
+              <input
+                type="number" id="repeatCount" name="repeatCount" value={newBooking.repeatCount} onChange={onChange}
+                min="1" max="52"
+                className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {!bookingToEdit && newBooking.repeat === 'weekly' && (
+        <div className="border-t border-gray-700 pt-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">On these days</label>
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+                {dayNames.map((day, index) => (
+                    <label key={day} className={`flex items-center justify-center space-x-2 p-2 rounded-lg cursor-pointer text-center ${newBooking.repeatOnDays.includes(index) ? 'bg-indigo-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                        <input
+                            type="checkbox"
+                            checked={newBooking.repeatOnDays.includes(index)}
+                            onChange={() => onChange({ target: { name: 'day_toggle', value: index } })}
+                            className="sr-only"
+                        />
+                        <span>{day}</span>
+                    </label>
+                ))}
+            </div>
+        </div>
+      )}
       <div className="flex justify-end space-x-3">
         <button
-          type="button"
-          onClick={() => setIsFormOpen(false)}
+          type="button" onClick={onClose}
           className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors font-medium"
         >
           <X className="w-4 h-4 mr-1" /> Close
@@ -107,91 +118,320 @@ const ScheduleView = () => {
           type="submit"
           className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
         >
-          <Plus className="w-4 h-4 mr-1" /> Schedule Booking
+          <Plus className="w-4 h-4 mr-1" /> {bookingToEdit ? 'Update Booking' : 'Schedule Booking'}
         </button>
       </div>
     </form>
-  );
-
-  const BookingList = () => (
-    <div className="mt-6 space-y-3">
-        {bookings.length === 0 ? (
-            <div className="p-6 text-center text-gray-400 bg-gray-800 rounded-xl border border-dashed border-gray-700">
-                No bookings scheduled yet. Click "New Booking" to add one.
-            </div>
-        ) : (
-            <div className="bg-gray-800 rounded-xl shadow-lg divide-y divide-gray-700">
-                {bookings.map(booking => {
-                    const dateObj = new Date(booking.dateTime);
-                    const date = dateObj.toLocaleDateString();
-                    const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const typeClass = booking.type === 'Inbound' ? 'bg-green-600/20 text-green-400 border-green-700' : 'bg-orange-600/20 text-orange-400 border-orange-700';
-
-                    return (
-                        <div key={booking.id} className="flex items-center justify-between p-4 hover:bg-gray-700 transition-colors">
-                            <div className="flex items-center space-x-4">
-                                <div className={`px-3 py-1 text-xs font-semibold rounded-full border ${typeClass}`}>
-                                    {booking.type}
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-white">{booking.name}</p>
-                                    <p className="text-sm text-gray-400 flex items-center">
-                                        <Calendar className="w-3 h-3 mr-1" /> {date} at {time}
-                                    </p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => handleDeleteBooking(booking.id)}
-                                className="text-red-400 hover:text-red-300 p-2 rounded-full hover:bg-gray-600 transition-colors"
-                                title="Delete Booking"
-                            >
-                                <Trash className="w-5 h-5" />
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
-        )}
     </div>
-  );
+);
+
+// Schedule View (Updated Component)
+const ScheduleView = ({ scheduleSettings }) => {
+  const { bookings, loading, updateBookings } = useScheduleData();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [bookingToEdit, setBookingToEdit] = useState(null);
+  const [newBooking, setNewBooking] = useState({
+    name: '',
+    type: 'Inbound',
+    // Repeat options
+    repeat: 'none',
+    repeatCount: 1,
+    repeatOnDays: [], // Sunday: 0, Monday: 1, etc.
+  });
+  const [bookingFormData, setBookingFormData] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+  });
+  
+  // --- Calendar Logic ---
+  const getWeekDays = (date) => {
+    const startOfWeek = new Date(date);
+    startOfWeek.setDate(date.getDate() - date.getDay()); // Start from Sunday
+    const fullWeek = Array.from({ length: 7 }).map((_, i) => {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      return day;
+    });
+    return fullWeek.filter(day => scheduleSettings.visibleDays.includes(day.getDay()));
+  };
+
+  const weekDays = getWeekDays(currentDate);
+  const timeSlots = Array.from({ length: scheduleSettings.endHour - scheduleSettings.startHour }).map((_, i) => `${(scheduleSettings.startHour + i).toString().padStart(2, '0')}:00`);
+
+  const goToPreviousWeek = () => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)));
+  const goToNextWeek = () => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)));
+  const goToToday = () => setCurrentDate(new Date());
+
+  const bookingsBySlot = React.useMemo(() => {
+    const map = {};
+    bookings.forEach(booking => {
+      const date = new Date(booking.startDateTime);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
+      if (!map[key]) {
+        map[key] = [];
+      }
+      map[key].push({ ...booking, startDate: date, endDate: new Date(booking.endDateTime) });
+    });
+    return map;
+  }, [bookings]);
+
+  // --- Form and CRUD Logic ---
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+
+    if (['name', 'type', 'repeat', 'repeatCount'].includes(name)) {
+      setNewBooking(prev => ({ ...prev, [name]: value }));
+      return;
+    }
+
+    if (name === 'day_toggle') {
+      setNewBooking(prev => ({
+        ...prev,
+        repeatOnDays: prev.repeatOnDays.includes(value) ? prev.repeatOnDays.filter(d => d !== value) : [...prev.repeatOnDays, value]
+      }));
+      return;
+    }
+
+    setBookingFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      // If start time changes, ensure end time is at least the same
+      if (name === 'startTime' && updated.startTime >= updated.endTime) {
+        updated.endTime = updated.startTime;
+      }
+      // If date changes, it's just a date change.
+      return updated;
+    });
+  };
+
+  const openFormForSlot = (date, hour) => {
+    const slotDate = new Date(date);
+    slotDate.setHours(hour, 0, 0, 0);
+    const endDate = new Date(slotDate.getTime() + 60 * 60 * 1000);
+
+    setBookingToEdit(null); // Ensure we are in "add" mode
+
+    setBookingFormData({
+      date: slotDate.toISOString().substring(0, 10),
+      startTime: slotDate.toTimeString().substring(0, 5),
+      endTime: endDate.toTimeString().substring(0, 5),
+    });
+    setNewBooking({
+      name: '',
+      type: 'Inbound',
+      repeat: 'none',
+      repeatCount: 1,
+      repeatOnDays: [slotDate.getDay()], // Default to the day clicked
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleEditBooking = (booking) => {
+    setBookingToEdit(booking);
+    const startDate = new Date(booking.startDateTime);
+    const endDate = new Date(booking.endDateTime);
+
+    setBookingFormData({
+      date: startDate.toISOString().substring(0, 10),
+      startTime: startDate.toTimeString().substring(0, 5),
+      endTime: endDate.toTimeString().substring(0, 5),
+    });
+
+    setNewBooking({
+      name: booking.name,
+      type: booking.type,
+      repeat: 'none', // Editing recurring series is not supported yet
+      repeatCount: 1,
+      repeatOnDays: [],
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleAddBooking = async (e) => {
+    e.preventDefault();
+    const { date, startTime, endTime } = bookingFormData;
+    const finalStartDateTime = `${date}T${startTime}`;
+    const finalEndDateTime = `${date}T${endTime}`;
+
+    if (!newBooking.name || !finalStartDateTime || !finalEndDateTime || new Date(finalEndDateTime) < new Date(finalStartDateTime)) {
+      console.error("Missing required fields.");
+      return;
+    }
+
+    if (bookingToEdit) {
+      // Update existing booking
+      const updatedBookings = bookings.map(b =>
+        b.id === bookingToEdit.id
+          ? { ...b, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime }
+          : b
+      );
+      updateBookings(updatedBookings);
+
+      // Send the update to the server
+      api.updateBooking(bookingToEdit.id, {
+        name: newBooking.name,
+        type: newBooking.type,
+        startDateTime: finalStartDateTime,
+        endDateTime: finalEndDateTime,
+      }).catch(error => {
+        console.error("Failed to update booking on server:", error);
+      });
+    } else {
+      // Add new booking (and potentially recurring ones)
+      const newEntries = [];
+      const seriesId = Date.now().toString(); // Unique ID for the series
+      const repeatWeeks = newBooking.repeat === 'weekly' ? parseInt(newBooking.repeatCount) || 1 : 1;
+      const daysToRepeatOn = newBooking.repeat === 'weekly' && newBooking.repeatOnDays.length > 0
+        ? newBooking.repeatOnDays
+        : [new Date(date).getDay()];
+
+      const firstDate = new Date(date);
+
+      for (let week = 0; week < repeatWeeks; week++) {
+        for (const dayIndex of daysToRepeatOn) {
+          const targetDate = new Date(firstDate);
+          targetDate.setDate(targetDate.getDate() + (week * 7) + (dayIndex - firstDate.getDay()));
+
+          const entryDateStr = targetDate.toISOString().substring(0, 10);
+
+          newEntries.push({
+            id: `${seriesId}-${week}-${dayIndex}`, // Unique ID for each instance
+            seriesId: seriesId,
+            name: newBooking.name, type: newBooking.type, status: 'Scheduled',
+            startDateTime: `${entryDateStr}T${startTime}`,
+            endDateTime: `${entryDateStr}T${endTime}`,
+          });
+        }
+      }
+      updateBookings([...newEntries, ...bookings]);
+
+      // Send the new bookings to the server
+      api.addBookings(newEntries).catch(error => {
+        console.error("Failed to save new bookings to server:", error);
+        // Here you might want to add logic to revert the optimistic update
+      });
+    }
+    setIsFormOpen(false);
+  };
+
+  const handleDeleteBooking = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this booking?")) return;
+    
+    // Optimistic UI Update
+    const filtered = bookings.filter(b => b.id !== id);
+    updateBookings(filtered);
+
+    api.deleteBooking(id).catch(error => {
+      console.error("Failed to delete booking on server:", error);
+      // Logic to revert the UI change could be added here
+    });
+  };
 
   return (
-    <div className="p-4 space-y-6">
-      <h1 className="text-3xl font-bold text-white flex items-center">
-        <Calendar className="w-6 h-6 mr-2 text-indigo-400" />
-        Pallet Scheduling Board
-      </h1>
-
-      <div className="flex justify-end">
-        <button
-          onClick={() => setIsFormOpen(prev => !prev)}
-          className={`flex items-center px-4 py-2 text-white rounded-xl font-medium transition-colors ${
-            isFormOpen ? 'bg-gray-600 hover:bg-gray-500' : 'bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-500/50'
-          }`}
-        >
-          {isFormOpen ? (
-            <>
-              <X className="w-5 h-5 mr-2" /> Hide Form
-            </>
-          ) : (
-            <>
-              <Plus className="w-5 h-5 mr-2" /> New Booking
-            </>
-          )}
-        </button>
+    <div className="p-4 space-y-4 flex flex-col h-full">
+      {/* Header and Navigation */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white flex items-center">
+          <Calendar className="w-6 h-6 mr-3 text-indigo-400" />
+          Weekly Schedule
+        </h1>
+        <div className="flex items-center gap-2">
+          <button onClick={goToPreviousWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronLeft className="w-5 h-5" /></button>
+          <button onClick={goToToday} className="px-3 py-1.5 text-sm bg-gray-700 rounded-md hover:bg-gray-600 transition">Today</button>
+          <button onClick={goToNextWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronRight className="w-5 h-5" /></button>
+          <span className="text-lg font-semibold text-gray-300 w-48 text-center">
+            {weekDays[0].toLocaleString('default', { month: 'long', year: 'numeric' })}
+          </span>
+          <button
+            onClick={() => openFormForSlot(new Date(), new Date().getHours())}
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
+          >
+            <Plus className="w-5 h-5 mr-2" /> New Booking
+          </button>
+        </div>
       </div>
 
-      {isFormOpen && <BookingForm />}
+      {/* Calendar Grid */}
+      <div className="flex-grow overflow-auto bg-gray-800 rounded-xl shadow-lg">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${weekDays.length || 1}, 1fr)` }}
+        >
+          {/* Header Row */}
+          {weekDays.map(day => (
+            <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 text-center border-b border-l border-gray-700 p-2">
+              <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
+              <p className="text-lg font-bold">{day.getDate()}</p>
+            </div>
+          ))}
 
-      <h2 className="text-xl font-semibold text-white pt-4 border-t border-gray-700">Upcoming Bookings ({bookings.length})</h2>
+          {/* Time Slots and Bookings */}
+          {timeSlots.map(time => (
+            <React.Fragment key={time}>
+              {weekDays.map(day => {
+                const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
+                const slotBookings = bookingsBySlot[slotKey] || [];
+                return (
+                  <div
+                    key={`${day.toISOString()}-${time}`}
+                    onClick={() => openFormForSlot(day, parseInt(time))}
+                    className="relative border-b border-l border-gray-700 h-14 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                  >
+                    <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
+                    {slotBookings.map((booking, index) => {
+                      const durationHours = (booking.endDate - booking.startDate) / (1000 * 60 * 60);
+                      const height = `calc(${durationHours * 100}% - 4px)`; // 4px for padding
+                      const top = `${(booking.startDate.getMinutes() / 60) * 100}%`;
+
+                      // Indent overlapping bookings
+                      const width = `calc(${100 - index * 10}% - 4px)`;
+                      const left = `${index * 5}%`;
+
+                      return (
+                      <div
+                        key={booking.id}
+                        onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                        className={`absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/70 border-l-2 border-green-400 hover:bg-green-900' : 'bg-orange-900/70 border-l-2 border-orange-400 hover:bg-orange-900'}`}
+                        style={{ height, top, width, left }}
+                      >
+                        <p className="font-bold truncate">{booking.name}</p>
+                        <div className="flex justify-between items-center">
+                          <p className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }}
+                            className="text-red-400 hover:text-red-200 opacity-50 hover:opacity-100"
+                          >
+                            <Trash className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* Modal Form */}
+      {isFormOpen && <BookingForm
+        bookingToEdit={bookingToEdit}
+        newBooking={newBooking}
+        bookingFormData={bookingFormData}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleAddBooking}
+        onChange={handleFormChange}
+      />
+      }
 
       {loading ? (
         <div className="flex justify-center items-center py-10 text-indigo-400">
           <Loader className="w-8 h-8 animate-spin mr-2" /> Loading Schedule Data...
         </div>
-      ) : (
-        <BookingList />
-      )}
+      ) : null}
     </div>
   );
 };
