@@ -167,6 +167,6 @@ app.delete('/api/bookings/:id', (req, res) => {
 });
 
 // --- Start Server ---
-app.listen(PORT, () => {
-  console.log(`Lattice data server is running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Lattice data server is running and listening on port ${PORT}`);
 });
