@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.1.248:4000/api';
+const API_BASE_URL = 'http://81.151.30.173 :4000/api';
 
 /**
  * A helper function to handle fetch responses.
