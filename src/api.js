@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://81.151.30.173:2707/api';
+const API_BASE_URL = '/api';
 
 /**
  * A helper function to handle fetch responses.

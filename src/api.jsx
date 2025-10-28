@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // The base URL for your local network server.
-const API_BASE_URL = 'http://81.151.30.173:2707/api';
+const API_BASE_URL = '/api';
 
 /**
  * A helper function to handle API requests and errors.
