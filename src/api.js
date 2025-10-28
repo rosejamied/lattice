@@ -1,4 +1,4 @@
-const API_BASE_URL = '/api';
+const API_BASE_URL = 'http://192.168.1.248:2707/api';
 
 /**
  * A helper function to handle fetch responses.
@@ -23,7 +23,10 @@ const handleResponse = async (response) => {
  * @returns {Promise<any>}
  */
 const apiFetch = (endpoint, options = {}) => {
-  return fetch(`${API_BASE_URL}${endpoint}`, {
+  // Ensure we don't have double slashes if endpoint starts with one
+  const url = `${API_BASE_URL}${endpoint}`;
+
+  return fetch(url, {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -42,8 +45,17 @@ export const deleteBooking = (id) => apiFetch(`/bookings/${id}`, { method: 'DELE
 export const getInventory = () => apiFetch('/inventory');
 export const addInventoryItem = (itemData) => apiFetch('/inventory', { method: 'POST', body: JSON.stringify(itemData) });
 export const updateInventoryItem = (id, itemData) => apiFetch(`/inventory/${id}`, { method: 'PUT', body: JSON.stringify(itemData) });
+export const bulkAddInventory = (items) => apiFetch('/inventory/bulk', { method: 'POST', body: JSON.stringify(items) });
 export const deleteInventoryItem = (id) => apiFetch(`/inventory/${id}`, { method: 'DELETE' });
+export const clearInventory = () => apiFetch('/inventory/all', { method: 'DELETE' });
 
 // --- Settings API ---
 export const getScheduleSettings = () => apiFetch('/settings/schedule');
 export const updateScheduleSettings = (settingsData) => apiFetch('/settings/schedule', { method: 'PUT', body: JSON.stringify(settingsData) });
+
+// --- Users API ---
+export const getUsers = () => apiFetch('/users');
+export const addUser = (userData) => apiFetch('/users', { method: 'POST', body: JSON.stringify(userData) });
+
+// --- Auth API ---
+export const login = (credentials) => apiFetch('/login', { method: 'POST', body: JSON.stringify(credentials) });

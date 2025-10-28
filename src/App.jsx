@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader } from 'lucide-react';
 
+import LoginPage from './LoginPage'; // Import the new Login Page
 // --- Hooks ---
 import { useWarehouseData } from './useWarehouseData'; // Correct hook
 import * as api from './api'; // Centralized API service
@@ -16,6 +17,12 @@ import Card from './Card';
 
 // --- Main Application Component ---
 const App = () => {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
+  // --- Page State ---
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState('dashboard'); // 'dashboard', 'inventory', 'form', 'schedule'
   const [itemToEdit, setItemToEdit] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState({
@@ -26,20 +33,50 @@ const App = () => {
     endHour: 18,  // 6 PM
   });
 
-  // Effect to load settings from the server on initial mount
+  // --- Effects ---
+  // Check for existing session on initial load
   useEffect(() => {
-    api.getScheduleSettings()
-      .then(settingsFromServer => {
-        if (settingsFromServer) {
-          setScheduleSettings(settingsFromServer);
-        }
-      })
-      .catch(err => {
-        console.log("No schedule settings found on server, using defaults.", err.message);
-      });
+    const storedUser = localStorage.getItem('latticeUser');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setAuthLoading(false);
   }, []);
-  // Static user ID since multi-user sync is disabled
-  const userId = 'LOCAL-USER-SIMULATION';
+
+  // Load app settings once the user is logged in
+  useEffect(() => {
+    if (user) {
+      api.getScheduleSettings()
+        .then(settingsFromServer => {
+          if (settingsFromServer) {
+            setScheduleSettings(settingsFromServer);
+          }
+        })
+        .catch(err => {
+          console.log("No schedule settings found on server, using defaults.", err.message);
+        });
+    }
+  }, [user]);
+
+  // --- Auth Handlers ---
+  const handleLogin = async (username, password) => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      const { user: loggedInUser } = await api.login({ username, password });
+      localStorage.setItem('latticeUser', JSON.stringify(loggedInUser));
+      setUser(loggedInUser);
+    } catch (error) {
+      setAuthError(error.message || "Login failed. Please check your credentials.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('latticeUser');
+    setUser(null);
+  };
 
   // Data Hook
   const { inventory, loading, error, updateInventory } = useWarehouseData();
@@ -108,21 +145,24 @@ const App = () => {
       return (
         <div className="flex flex-col items-center justify-center h-full text-indigo-400">
           <Loader className="w-12 h-12 animate-spin mb-4" />
-          <p>Loading local data...</p>
+          <p>Loading warehouse data...</p>
         </div>
       );
     }
 
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard inventory={inventory} userId={userId} />;
+        return <Dashboard inventory={inventory} />;
       case 'inventory':
-        // Placeholder for the inventory page
-        return <div className="flex flex-col items-center justify-center h-full text-center p-8">
-          <h1 className="text-4xl font-bold text-white mb-4">Inventory Management</h1>
-          <p className="text-lg text-gray-400">This feature is currently under construction.</p>
-          <p className="text-gray-400">Please check back later!</p>
-        </div>;
+        return (
+          <InventoryList
+            inventory={inventory}
+            loading={loading}
+            error={error}
+            onEdit={(item) => navigate('form', item)}
+            onDelete={handleDeleteItem}
+          />
+        );
       case 'form':
         return <InventoryForm itemToEdit={itemToEdit} onSave={handleSaveItem} onCancel={() => navigate('inventory')} />;
       case 'schedule':
@@ -130,17 +170,30 @@ const App = () => {
       case 'settings':
         return <SettingsPage scheduleSettings={scheduleSettings} onScheduleSettingsChange={handleScheduleSettingsChange} />;
       default:
-        return <Dashboard inventory={inventory} userId={userId} />;
+        return <Dashboard inventory={inventory} />;
     }
   };
 
+  // If not logged in, show the login page.
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} error={authError} loading={authLoading} />;
+  }
+
+  // If logged in, show the main application.
   return (
     <div className="h-screen bg-gray-900 text-gray-100 flex font-sans antialiased overflow-hidden">
-      <Sidebar currentPage={currentPage} navigate={navigate} />
+      <Sidebar
+        isOpen={isSidebarOpen}
+        toggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        currentPage={currentPage}
+        navigate={navigate}
+        onLogout={handleLogout} user={user}
+      />
       <main className="flex-grow overflow-y-auto">
         {renderContent()}
       </main>
     </div>
   );
 };
+
 export default App;

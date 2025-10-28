@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Settings, Calendar } from 'lucide-react';
+import { Settings, Calendar, Users, ShieldAlert } from 'lucide-react';
+import UserSettings from './UserSettings';
+import AdvancedSettings from './AdvancedSettings';
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -79,7 +81,8 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
 
   const tabs = [
     { id: 'schedule', label: 'Schedule', icon: Calendar },
-    // Add more tabs here in the future
+    { id: 'users', label: 'Users', icon: Users },
+    { id: 'advanced', label: 'Advanced', icon: ShieldAlert },
   ];
 
   return (
@@ -113,6 +116,12 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
             settings={scheduleSettings}
             onSettingsChange={onScheduleSettingsChange}
           />
+        )}
+        {activeTab === 'users' && (
+          <UserSettings />
+        )}
+        {activeTab === 'advanced' && (
+          <AdvancedSettings />
         )}
       </div>
     </div>
