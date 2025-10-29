@@ -485,7 +485,10 @@ const ScheduleView = ({ scheduleSettings }) => {
                     className={`p-1.5 rounded-md text-xs cursor-pointer overflow-hidden text-center ${booking.type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800'}`}
                   >
                     <div className="flex justify-between items-center">
-                      <p className="font-bold truncate">{booking.name}</p>
+                      <div className="truncate">
+                        <p className="font-bold truncate">{booking.name}</p>
+                        <p className="text-gray-300 truncate text-left">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                      </div>
                       {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                     </div>
                   </div>
@@ -523,8 +526,11 @@ const ScheduleView = ({ scheduleSettings }) => {
                         className={`absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/70 border-l-2 border-green-400 hover:bg-green-900' : 'bg-orange-900/70 border-l-2 border-orange-400 hover:bg-orange-900'}`}
                         style={{ height, top, width, left }}
                       >
-                        <div className="flex justify-between items-center">
-                          <p className="font-bold truncate">{booking.name}</p>
+                        <div className="flex justify-between items-start">
+                          <div className="truncate">
+                            <p className="font-bold truncate">{booking.name}</p>
+                            <p className="text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                          </div>
                           {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                         </div>
                         <div className="flex justify-between items-center">
