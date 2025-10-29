@@ -238,8 +238,8 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                     onClick={() => handleEditBooking(booking)}
                     className={`p-3 rounded-lg flex justify-between items-start cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}
                   >
-                    <div className="truncate flex-grow">
-                      <p className="truncate">
+                    <div className="flex-grow min-w-0 mr-2">
+                      <p className="break-words">
                         <span className="font-bold text-white">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
                         {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
                         {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
@@ -282,8 +282,8 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                       style={{ top: `${top}px`, height: `${height}px` }}
                     >
                       <div className="flex justify-between items-start">
-                        <div className="truncate">
-                          <p className="font-bold text-white text-sm truncate">
+                        <div className="min-w-0 mr-1">
+                          <p className="font-bold text-white text-sm break-words">
                             {customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}
                             {booking.contractName && <span className="font-normal text-gray-300"> - {booking.contractName}</span>}
                             {booking.name && <span className="font-normal text-gray-300"> - {booking.name}</span>}
