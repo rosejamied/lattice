@@ -15,6 +15,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [hauliers, setHauliers] = useState([]);
   const [bookingToEdit, setBookingToEdit] = useState(null);
+  const [isFormEditable, setIsFormEditable] = useState(false);
   const [newBooking, setNewBooking] = useState({
     name: '',
     type: 'Inbound',
@@ -151,6 +152,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       repeatOnDays: [slotDate.getDay()], // Default to the day clicked
     });
     setIsFormOpen(true);
+    setIsFormEditable(true); // New bookings are editable by default
   };
   
   const openFormForNewOpenBooking = () => {
@@ -175,6 +177,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       repeatOnDays: [today.getDay()],
     });
     setIsFormOpen(true);
+    setIsFormEditable(true); // New bookings are editable by default
   };
 
   const handleEditBooking = (booking) => {
@@ -200,6 +203,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       repeatOnDays: [],
     });
     setIsFormOpen(true);
+    setIsFormEditable(false); // Open in read-only mode first
   };
 
   const handleAddBooking = async (e) => {
@@ -273,7 +277,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   };
 
   return (
-    <div className="w-1/2 mx-auto">
+    <div className="w-3/4 mx-auto">
       <div className="p-4 space-y-4 flex flex-col h-full">
         {/* Header and Navigation */}
         <div className="flex items-center justify-between">
@@ -366,15 +370,15 @@ const ScheduleView = ({ scheduleSettings }) => {
                             </div>
                             {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                           </div>
+                        {!booking.startDateTime.endsWith('T00:00:00') && (
                           <div className="flex justify-between items-center">
                             <p className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }}
                               className="text-red-400 hover:text-red-200 opacity-50 hover:opacity-100"
-                            >
-                              <Trash className="w-3 h-3" />
-                            </button>
+                            ><Trash className="w-3 h-3" /></button>
                           </div>
+                        )}
                         </div>
                         );
                       })}
@@ -397,6 +401,8 @@ const ScheduleView = ({ scheduleSettings }) => {
           customers={customers}
           suppliers={suppliers}
           hauliers={hauliers}
+        isEditable={isFormEditable}
+        onSetEditable={() => setIsFormEditable(true)}
         />
         }
 

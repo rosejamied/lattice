@@ -14,6 +14,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
 
   // Form State
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isFormEditable, setIsFormEditable] = useState(false);
   const [bookingToEdit, setBookingToEdit] = useState(null);
   const [newBooking, setNewBooking] = useState({
     name: '', type: 'Inbound', expectedPallets: '', isOpenBooking: false,
@@ -112,6 +113,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
       repeatOnDays: [],
     });
     setIsFormOpen(true);
+    setIsFormEditable(false); // Open in read-only mode
   };
 
   const handleFormSubmit = async (e) => {
@@ -142,6 +144,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   const handleDeleteBooking = (id) => {
     if (window.confirm("Are you sure you want to delete this booking?")) {
       deleteBooking(id);
+      setBookingToEdit(null);
       setIsFormOpen(false); // Close form if open
     }
   };
@@ -182,8 +185,9 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                     className={`p-3 rounded-lg flex justify-between items-start cursor-pointer ${booking.type === 'Inbound' ? 'bg-green-800/80 hover:bg-green-800' : 'bg-orange-800/80 hover:bg-orange-800'}`}
                   >
                     <div className="truncate flex-grow">
-                      <p className="font-bold text-white truncate">{booking.name}</p>
+                      <p className="font-bold text-white truncate">{booking.name || 'No Reference'}</p>
                       <p className="text-sm text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                      {/* Times are hidden for open bookings */}
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-end ml-2">
                       {booking.expectedPallets > 0 && (
@@ -222,8 +226,11 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                     >
                       <div className="flex justify-between items-start">
                         <div className="truncate">
-                          <p className="font-bold text-white text-sm truncate">{booking.name}</p>
+                          <p className="font-bold text-white text-sm truncate">{booking.name || 'No Reference'}</p>
                           <p className="text-xs text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                          {!booking.startDateTime.endsWith('T00:00:00') && (
+                            <p className="text-xs text-gray-400 mt-1">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                          )}
                         </div>
                         {booking.expectedPallets > 0 && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                       </div>
@@ -251,6 +258,8 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
           customers={customers}
           suppliers={suppliers}
           hauliers={hauliers}
+          isEditable={isFormEditable}
+          onSetEditable={() => setIsFormEditable(true)}
         />
       )}
     </div>

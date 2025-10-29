@@ -12,20 +12,14 @@ const BookingForm = ({
   onChange,
   customers,
   suppliers,
-  hauliers
+  hauliers,
+  isEditable,
+  onSetEditable
 }) => (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
     <form onSubmit={onSubmit} className="bg-gray-800 w-full max-w-2xl p-6 rounded-xl space-y-4 border border-indigo-700 shadow-2xl overflow-y-auto max-h-full">
       <h3 className="text-xl font-semibold text-white">{bookingToEdit ? 'Update Booking' : 'Schedule a Booking'}</h3>
       <div className="grid grid-cols-1 gap-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Client Name</label>
-          <input
-            type="text" id="name" name="name" value={newBooking.name} onChange={onChange}
-            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-            placeholder="e.g., Q4 Shipment, Vendor A Pickup" required
-          />
-        </div>
         <div>
           <label htmlFor="expectedPallets" className="block text-sm font-medium text-gray-300 mb-1">Expected Pallets</label>
           <input
@@ -33,19 +27,29 @@ const BookingForm = ({
             min="0"
             className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
             placeholder="e.g., 10"
+            disabled={!isEditable}
           />
         </div>
         <div>
           <label htmlFor="customer_id" className="block text-sm font-medium text-gray-300 mb-1">Customer</label>
-          <select id="customer_id" name="customer_id" value={newBooking.customer_id || ''} onChange={onChange} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+          <select id="customer_id" name="customer_id" value={newBooking.customer_id || ''} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
             <option value="">-- Select Customer --</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Booking Reference / Name</label>
+          <input
+            type="text" id="name" name="name" value={newBooking.name} onChange={onChange}
+            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="e.g., PO-12345, ASN-67890" required
+            disabled={!isEditable}
+          />
+        </div>
         {newBooking.type === 'Inbound' && (
           <div>
             <label htmlFor="supplier_id" className="block text-sm font-medium text-gray-300 mb-1">Supplier</label>
-            <select id="supplier_id" name="supplier_id" value={newBooking.supplier_id || ''} onChange={onChange} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+            <select id="supplier_id" name="supplier_id" value={newBooking.supplier_id || ''} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
               <option value="">-- Select Supplier --</option>
               {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -54,7 +58,7 @@ const BookingForm = ({
         {newBooking.type === 'Outbound' && (
           <div>
             <label htmlFor="haulier_id" className="block text-sm font-medium text-gray-300 mb-1">Haulier</label>
-            <select id="haulier_id" name="haulier_id" value={newBooking.haulier_id || ''} onChange={onChange} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+            <select id="haulier_id" name="haulier_id" value={newBooking.haulier_id || ''} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
               <option value="">-- Select Haulier --</option>
               {hauliers.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
             </select>
@@ -67,7 +71,7 @@ const BookingForm = ({
           id="isOpenBooking"
           name="isOpenBooking"
           checked={newBooking.isOpenBooking}
-          onChange={onChange}
+          onChange={onChange} disabled={!isEditable}
           className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"
         />
         <label htmlFor="isOpenBooking" className="ml-2 text-sm font-medium text-gray-300">Open Booking (All Day)</label>
@@ -77,7 +81,7 @@ const BookingForm = ({
             <label htmlFor="type" className="block text-sm font-medium text-gray-300 mb-1">Booking Type</label>
             <select
               id="type" name="type" value={newBooking.type} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed" disabled={!isEditable}
             >
               <option value="Inbound">Inbound</option>
               <option value="Outbound">Outbound</option>
@@ -87,7 +91,7 @@ const BookingForm = ({
             <label htmlFor="date" className="block text-sm font-medium text-gray-300 mb-1">Date</label>
             <input
               type="date" id="date" name="date" value={bookingFormData.date} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed" disabled={!isEditable}
               required
             />
           </div>
@@ -97,8 +101,8 @@ const BookingForm = ({
             <label htmlFor="startTime" className={`block text-sm font-medium mb-1 ${newBooking.isOpenBooking ? 'text-gray-500' : 'text-gray-300'}`}>Start Time</label>
             <input
               type="time" id="startTime" name="startTime" value={bookingFormData.startTime} onChange={onChange}
-              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
-              disabled={newBooking.isOpenBooking}
+              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking || !isEditable ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
+              disabled={newBooking.isOpenBooking || !isEditable}
               required
             />
           </div>
@@ -106,9 +110,9 @@ const BookingForm = ({
             <label htmlFor="endTime" className={`block text-sm font-medium mb-1 ${newBooking.isOpenBooking ? 'text-gray-500' : 'text-gray-300'}`}>End Time</label>
             <input
               type="time" id="endTime" name="endTime" value={bookingFormData.endTime} onChange={onChange}
-              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
+              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking || !isEditable ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
               min={bookingFormData.startTime}
-              disabled={newBooking.isOpenBooking}
+              disabled={newBooking.isOpenBooking || !isEditable}
               required
             />
           </div>
@@ -119,7 +123,7 @@ const BookingForm = ({
             <label htmlFor="repeat" className="block text-sm font-medium text-gray-300 mb-1">Repeat</label>
             <select
               id="repeat" name="repeat" value={newBooking.repeat} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500" disabled={!isEditable}
             >
               <option value="none">Does not repeat</option>
               <option value="weekly">Weekly</option>
@@ -131,7 +135,7 @@ const BookingForm = ({
               <input
                 type="number" id="repeatCount" name="repeatCount" value={newBooking.repeatCount} onChange={onChange}
                 min="1" max="52"
-                className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500" disabled={!isEditable}
               />
             </div>
           )}
@@ -146,7 +150,7 @@ const BookingForm = ({
                         <input
                             type="checkbox"
                             checked={newBooking.repeatOnDays.includes(index)}
-                            onChange={() => onChange({ target: { name: 'day_toggle', value: index } })}
+                            onChange={() => isEditable && onChange({ target: { name: 'day_toggle', value: index } })}
                             className="sr-only"
                         />
                         <span>{day}</span>
@@ -162,12 +166,21 @@ const BookingForm = ({
         >
           <X className="w-4 h-4 mr-1" /> Close
         </button>
-        <button
-          type="submit"
-          className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
-        >
-          <Plus className="w-4 h-4 mr-1" /> {bookingToEdit ? 'Update Booking' : 'Schedule Booking'}
-        </button>
+        {isEditable ? (
+          <button
+            type="submit"
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
+          >
+            <Plus className="w-4 h-4 mr-1" /> {bookingToEdit ? 'Save Changes' : 'Schedule Booking'}
+          </button>
+        ) : (
+          <button
+            type="button" onClick={onSetEditable}
+            className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 transition-colors font-medium"
+          >
+            Update Booking
+          </button>
+        )}
       </div>
     </form>
     </div>
