@@ -128,3 +128,13 @@ export const getUsers = () => {
 export const addUser = (userData) => {
   return handleRequest(axios.post(`${API_BASE_URL}/users`, userData));
 };
+
+// --- Auth API ---
+
+/**
+ * Authenticates a user and returns a token and user object.
+ * @param {object} credentials - The user's credentials { username, password }.
+ */
+export const login = (credentials) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/login`, credentials));
+};
