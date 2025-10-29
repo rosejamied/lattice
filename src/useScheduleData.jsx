@@ -31,10 +31,38 @@ export const useScheduleData = () => {
     console.log("Booking state updated. API calls are handled by add/delete/update functions.");
   }, []);
 
+  const addBooking = useCallback(async (newEntries) => {
+    // Optimistic UI Update
+    setBookings(prev => [...newEntries, ...prev]);
+
+    try {
+      await api.addBooking(newEntries);
+    } catch (error) {
+      console.error("Failed to save new bookings to server:", error);
+      // Revert optimistic update on failure
+      setBookings(prev => prev.filter(b => !newEntries.some(nb => nb.id === b.id)));
+    }
+  }, []);
+
+  const deleteBooking = useCallback(async (id) => {
+    const originalBookings = bookings;
+    // Optimistic UI Update
+    setBookings(prev => prev.filter(b => b.id !== id));
+
+    try {
+      await api.deleteBooking(id);
+    } catch (error) {
+      console.error("Failed to delete booking on server:", error);
+      // Revert optimistic update on failure
+      setBookings(originalBookings);
+    }
+  }, [bookings]);
+
+
   const sortedBookings = useMemo(() => {
     // The server will eventually handle sorting, but we'll keep it here for now.
     return [...bookings].sort((a, b) => new Date(a.startDateTime) - new Date(b.startDateTime));
   }, [bookings]);
 
-  return { bookings: sortedBookings, loading, updateBookings };
+  return { bookings: sortedBookings, loading, updateBookings, addBooking, deleteBooking };
 };
