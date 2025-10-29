@@ -148,7 +148,7 @@ const BookingForm = ({
 
 // Schedule View (Updated Component)
 const ScheduleView = ({ scheduleSettings }) => {
-  const { bookings, loading, addBooking, deleteBooking, updateBookings } = useScheduleData();
+  const { bookings, loading, addBooking, deleteBooking, updateBooking, updateBookings } = useScheduleData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [bookingToEdit, setBookingToEdit] = useState(null);
@@ -327,17 +327,11 @@ const ScheduleView = ({ scheduleSettings }) => {
 
     if (bookingToEdit) {
       // Update existing booking
-      const updatedBookings = bookings.map(b =>
-        b.id === bookingToEdit.id
-          ? { ...b, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime, expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0 }
-          : b
-      );
-      updateBookings(updatedBookings);
-
-      // Send the update to the server
-      updateBookings(updatedBookings).catch(error => { // Assuming updateBookings will also handle API calls in the future
-        console.error("Failed to update booking on server:", error);
-      });
+      const bookingToUpdate = {
+        ...bookingToEdit, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime, expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0
+      };
+      // Use the new updateBooking function from the hook
+      updateBooking(bookingToUpdate);
     } else {
       // Add new booking (and potentially recurring ones)
       const newEntries = [];

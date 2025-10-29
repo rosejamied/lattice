@@ -26,18 +26,23 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
 
 // Create bookings table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS bookings (
-  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER
+  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT
 )`);
 
 // Create inventory table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS inventory (
-  id TEXT PRIMARY KEY, name TEXT, sku TEXT, quantity INTEGER, location TEXT, createdAt TEXT, updatedAt TEXT
+  id TEXT PRIMARY KEY, name TEXT, sku TEXT, quantity INTEGER, location TEXT, createdAt TEXT, updatedAt TEXT, customer_id TEXT
 )`);
 
 // Create settings table if it doesn't exist (using a simple key-value structure)
 db.run(`CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
+)`);
+
+// Create customers table if it doesn't exist
+db.run(`CREATE TABLE IF NOT EXISTS customers (
+  id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
 )`);
 
 // Create users table if it doesn't exist

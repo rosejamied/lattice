@@ -88,6 +88,15 @@ export const addBooking = (bookings) => {
 };
 
 /**
+ * Updates an existing booking by its ID.
+ * @param {string} id - The ID of the booking to update.
+ * @param {object} bookingData - The updated booking data.
+ */
+export const updateBooking = (id, bookingData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/bookings/${id}`, bookingData));
+};
+
+/**
  * Deletes a booking by its ID.
  * @param {string} id - The ID of the booking to delete.
  */

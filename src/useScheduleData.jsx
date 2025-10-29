@@ -58,11 +58,30 @@ export const useScheduleData = () => {
     }
   }, [bookings]);
 
+  const updateBooking = useCallback(async (updatedBooking) => {
+    const originalBookings = bookings;
+    // Optimistic UI Update
+    setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+
+    try {
+      // The API call only needs the fields to be updated, not the whole object with calculated values.
+      await api.updateBooking(updatedBooking.id, {
+        name: updatedBooking.name,
+        type: updatedBooking.type,
+        startDateTime: updatedBooking.startDateTime,
+        endDateTime: updatedBooking.endDateTime,
+        expectedPallets: updatedBooking.expectedPallets,
+      });
+    } catch (error) {
+      console.error("Failed to update booking on server:", error);
+      setBookings(originalBookings); // Revert on failure
+    }
+  }, [bookings]);
 
   const sortedBookings = useMemo(() => {
     // The server will eventually handle sorting, but we'll keep it here for now.
     return [...bookings].sort((a, b) => new Date(a.startDateTime) - new Date(b.startDateTime));
   }, [bookings]);
 
-  return { bookings: sortedBookings, loading, updateBookings, addBooking, deleteBooking };
+  return { bookings: sortedBookings, loading, updateBookings, addBooking, deleteBooking, updateBooking };
 };

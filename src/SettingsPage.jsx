@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Settings, Calendar, Users, ShieldAlert } from 'lucide-react';
+import { Settings, Calendar, Users, ShieldAlert, Building } from 'lucide-react';
 import UserSettings from './UserSettings';
 import AdvancedSettings from './AdvancedSettings';
+import CustomerSettings from './CustomerSettings'; // We will create this next
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -83,6 +84,7 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
     { id: 'schedule', label: 'Schedule', icon: Calendar },
     { id: 'users', label: 'Users', icon: Users },
     { id: 'advanced', label: 'Advanced', icon: ShieldAlert },
+    { id: 'customers', label: 'Customers', icon: Building },
   ];
 
   return (
@@ -122,6 +124,9 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
         )}
         {activeTab === 'advanced' && (
           <AdvancedSettings />
+        )}
+        {activeTab === 'customers' && (
+          <CustomerSettings />
         )}
       </div>
     </div>
