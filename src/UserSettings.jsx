@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Loader, Edit, Trash } from 'lucide-react';
-import * as api from './api.js';
+import * as api from './api.jsx';
 import AddUserModal from './AddUserModal';
 
 const UserSettings = () => {

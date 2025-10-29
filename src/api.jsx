@@ -52,6 +52,20 @@ export const deleteInventoryItem = (id) => {
   return handleRequest(axios.delete(`${API_BASE_URL}/inventory/${id}`));
 };
 
+/**
+ * Adds multiple inventory items in bulk.
+ * @param {Array<object>} items - An array of new inventory items.
+ */
+export const bulkAddInventory = (items) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/inventory/bulk`, items));
+};
+
+/**
+ * Deletes all inventory items.
+ */
+export const clearInventory = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/inventory/all`));
+};
 // --- Bookings API ---
 
 /**

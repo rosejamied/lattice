@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import * as api from './api';
+import * as api from './api.jsx';
 
 /**
  * Custom hook to manage pallet data by fetching from the remote server.

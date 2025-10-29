@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, Trash2, AlertTriangle, Loader } from 'lucide-react';
-import * as api from './api.js';
+import * as api from './api.jsx';
 import ImportMappingModal from './ImportMappingModal.jsx';
 import Papa from 'papaparse';
 

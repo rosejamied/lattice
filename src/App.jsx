@@ -4,7 +4,7 @@ import { Loader } from 'lucide-react';
 import LoginPage from './LoginPage'; // Import the new Login Page
 // --- Hooks ---
 import { useWarehouseData } from './useWarehouseData'; // Correct hook
-import * as api from './api'; // Centralized API service
+import * as api from './api.jsx'; // Centralized API service
 
 // --- Components ---
 import Sidebar from './Sidebar';
