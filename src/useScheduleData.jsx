@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import * as api from './api'; // Import the new API service
+import * as api from './api.jsx'; // Import the new API service
 
 /**
  * Custom hook to manage booking data by fetching from the remote server.
