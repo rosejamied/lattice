@@ -96,6 +96,17 @@ app.put('/api/bookings/:id', (req, res) => {
   });
 });
 
+// DELETE a booking by ID
+app.delete('/api/bookings/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM bookings WHERE id = ?`, id, function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(this.changes > 0 ? 204 : 404).send(); // 204 No Content, or 404 Not Found
+  });
+});
+
 // --- Settings Routes ---
 
 // GET settings by key

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Loader, Trash, X, Calendar, ChevronLeft, ChevronRight, Dot } from 'lucide-react';
 import { useScheduleData } from './useScheduleData';
-import * as api from './api.jsx';
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -127,7 +126,7 @@ const BookingForm = ({
 
 // Schedule View (Updated Component)
 const ScheduleView = ({ scheduleSettings }) => {
-  const { bookings, loading, updateBookings } = useScheduleData();
+  const { bookings, loading, addBooking, deleteBooking, updateBookings } = useScheduleData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [bookingToEdit, setBookingToEdit] = useState(null);
@@ -269,12 +268,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       updateBookings(updatedBookings);
 
       // Send the update to the server
-      api.updateBooking(bookingToEdit.id, {
-        name: newBooking.name,
-        type: newBooking.type,
-        startDateTime: finalStartDateTime,
-        endDateTime: finalEndDateTime,
-      }).catch(error => {
+      updateBookings(updatedBookings).catch(error => { // Assuming updateBookings will also handle API calls in the future
         console.error("Failed to update booking on server:", error);
       });
     } else {
@@ -304,28 +298,16 @@ const ScheduleView = ({ scheduleSettings }) => {
           });
         }
       }
-      updateBookings([...newEntries, ...bookings]);
-
-      // Send the new bookings to the server
-      api.addBookings(newEntries).catch(error => {
-        console.error("Failed to save new bookings to server:", error);
-        // Here you might want to add logic to revert the optimistic update
-      });
+      // Use the addBooking function from the hook
+      addBooking(newEntries);
     }
     setIsFormOpen(false);
   };
 
   const handleDeleteBooking = async (id) => {
     if (!window.confirm("Are you sure you want to delete this booking?")) return;
-    
-    // Optimistic UI Update
-    const filtered = bookings.filter(b => b.id !== id);
-    updateBookings(filtered);
-
-    api.deleteBooking(id).catch(error => {
-      console.error("Failed to delete booking on server:", error);
-      // Logic to revert the UI change could be added here
-    });
+    // Use the deleteBooking function from the hook
+    deleteBooking(id);
   };
 
   return (
