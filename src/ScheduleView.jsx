@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Loader, Trash, X, Calendar, ChevronLeft, ChevronRight, Dot } from 'lucide-react';
 import { useScheduleData } from './useScheduleData';
+import * as api from './api.jsx';
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

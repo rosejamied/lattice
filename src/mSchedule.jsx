@@ -87,9 +87,14 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
               <h3 className="text-lg font-semibold text-gray-300 mb-2">Open Bookings</h3>
               <div className="space-y-2">
                 {openBookings.length > 0 ? openBookings.map(booking => (
-                  <div key={booking.id} className={`p-3 rounded-lg ${booking.type === 'Inbound' ? 'bg-green-800/80' : 'bg-orange-800/80'}`}>
-                    <p className="font-bold text-white">{booking.name}</p>
-                    <p className="text-sm text-gray-300">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                  <div key={booking.id} className={`p-3 rounded-lg flex justify-between items-start ${booking.type === 'Inbound' ? 'bg-green-800/80' : 'bg-orange-800/80'}`}>
+                    <div className="truncate">
+                      <p className="font-bold text-white truncate">{booking.name}</p>
+                      <p className="text-sm text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                    </div>
+                    {booking.expectedPallets > 0 && (
+                      <span className="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-gray-900/50">{booking.expectedPallets}</span>
+                    )}
                   </div>
                 )) : <p className="text-sm text-gray-500">No open bookings for this day.</p>}
               </div>
@@ -119,8 +124,13 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                       className={`absolute left-20 right-0 p-2 rounded-lg overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/80 border-l-2 border-green-500' : 'bg-orange-900/80 border-l-2 border-orange-500'}`}
                       style={{ top: `${top}px`, height: `${height}px` }}
                     >
-                      <p className="font-bold text-white text-sm truncate">{booking.name}</p>
-                      <p className="text-xs text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                      <div className="flex justify-between items-start">
+                        <div className="truncate">
+                          <p className="font-bold text-white text-sm truncate">{booking.name}</p>
+                          <p className="text-xs text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                        </div>
+                        {booking.expectedPallets > 0 && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
+                      </div>
                     </div>
                   );
                 })}
