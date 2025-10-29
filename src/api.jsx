@@ -164,3 +164,35 @@ export const getCustomers = () => {
 export const addCustomer = (customerData) => {
   return handleRequest(axios.post(`${API_BASE_URL}/customers`, customerData));
 };
+
+// --- Suppliers API ---
+
+/**
+ * Fetches all suppliers from the server.
+ */
+export const getSuppliers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/suppliers`));
+};
+
+/**
+ * Adds a new supplier.
+ */
+export const addSupplier = (supplierData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/suppliers`, supplierData));
+};
+
+// --- Hauliers API ---
+
+/**
+ * Fetches all hauliers from the server.
+ */
+export const getHauliers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/hauliers`));
+};
+
+/**
+ * Adds a new haulier.
+ */
+export const addHaulier = (haulierData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/hauliers`, haulierData));
+};

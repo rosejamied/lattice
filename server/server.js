@@ -24,9 +24,44 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
   console.log('Connected to the lattice.db SQLite database.');
 });
 
+// --- Database Schema Migrations ---
+// This is a simple way to handle schema changes without dropping the table.
+db.serialize(() => {
+  // Add columns to the 'bookings' table if they don't exist
+  db.run(`ALTER TABLE bookings ADD COLUMN expectedPallets INTEGER`, (err) => {
+    if (err && err.message.includes('duplicate column name')) { /* Ignore error if column already exists */ } 
+    else if (err) { console.error('Error adding "expectedPallets" to "bookings":', err.message); }
+    else { console.log('Column "expectedPallets" added to "bookings" table.'); }
+  });
+  db.run(`ALTER TABLE bookings ADD COLUMN customer_id TEXT`, (err) => {
+    if (err && err.message.includes('duplicate column name')) { /* Ignore error if column already exists */ }
+    else if (err) { console.error('Error adding "customer_id" to "bookings":', err.message); }
+    else { console.log('Column "customer_id" added to "bookings" table.'); }
+  });
+
+  // Add column to the 'inventory' table if it doesn't exist
+  db.run(`ALTER TABLE inventory ADD COLUMN customer_id TEXT`, (err) => {
+    if (err && err.message.includes('duplicate column name')) { /* Ignore error if column already exists */ }
+    else if (err) { console.error('Error adding "customer_id" to "inventory":', err.message); }
+    else { console.log('Column "customer_id" added to "inventory" table.'); }
+  });
+
+  // Add new columns to the 'bookings' table for suppliers and hauliers
+  db.run(`ALTER TABLE bookings ADD COLUMN supplier_id TEXT`, (err) => {
+    if (err && err.message.includes('duplicate column name')) { /* Ignore */ }
+    else if (err) { console.error('Error adding "supplier_id" to "bookings":', err.message); }
+    else { console.log('Column "supplier_id" added to "bookings" table.'); }
+  });
+  db.run(`ALTER TABLE bookings ADD COLUMN haulier_id TEXT`, (err) => {
+    if (err && err.message.includes('duplicate column name')) { /* Ignore */ }
+    else if (err) { console.error('Error adding "haulier_id" to "bookings":', err.message); }
+    else { console.log('Column "haulier_id" added to "bookings" table.'); }
+  });
+});
+
 // Create bookings table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS bookings (
-  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT
+  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT, supplier_id TEXT, haulier_id TEXT
 )`);
 
 // Create inventory table if it doesn't exist
@@ -42,6 +77,16 @@ db.run(`CREATE TABLE IF NOT EXISTS settings (
 
 // Create customers table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS customers (
+  id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
+)`);
+
+// Create suppliers table if it doesn't exist
+db.run(`CREATE TABLE IF NOT EXISTS suppliers (
+  id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
+)`);
+
+// Create hauliers table if it doesn't exist
+db.run(`CREATE TABLE IF NOT EXISTS hauliers (
   id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
 )`);
 
@@ -74,9 +119,9 @@ app.post('/api/bookings', (req, res) => {
     return res.status(400).json({ message: 'Request body must be an array of bookings.' });
   }
 
-  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets, customer_id, supplier_id, haulier_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
   newBookings.forEach(booking => {
-    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status, booking.expectedPallets, booking.customer_id);
+    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status, booking.expectedPallets, booking.customer_id, booking.supplier_id, booking.haulier_id);
   });
   stmt.finalize((err) => {
     if (err) {
@@ -89,11 +134,22 @@ app.post('/api/bookings', (req, res) => {
 // PUT (update) a booking by ID
 app.put('/api/bookings/:id', (req, res) => {
   const { id } = req.params;
-  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id } = req.body;
+  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id, supplier_id, haulier_id } = req.body;
 
-  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ? WHERE id = ?`;
+  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ?, supplier_id = ?, haulier_id = ? WHERE id = ?`;
 
-  db.run(sql, [name, type, startDateTime, endDateTime, expectedPallets, customer_id, id], function(err) {
+  const params = [
+    name,
+    type,
+    startDateTime,
+    endDateTime,
+    expectedPallets || 0,
+    customer_id || null,
+    supplier_id || null,
+    haulier_id || null,
+    id
+  ];
+  db.run(sql, params, function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -279,6 +335,58 @@ app.post('/api/customers', (req, res) => {
   db.run(sql, [newCustomer.id, newCustomer.name, newCustomer.status, newCustomer.createdAt], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json(newCustomer);
+  });
+});
+
+// --- Supplier Routes ---
+app.get('/api/suppliers', (req, res) => {
+  db.all("SELECT * FROM suppliers ORDER BY name ASC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(rows);
+  });
+});
+
+app.post('/api/suppliers', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: "Supplier name is required." });
+
+  const newSupplier = {
+    id: `supp_${Date.now()}`,
+    name: name,
+    status: 'Active',
+    createdAt: new Date().toISOString(),
+  };
+
+  const sql = `INSERT INTO suppliers (id, name, status, createdAt) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [newSupplier.id, newSupplier.name, newSupplier.status, newSupplier.createdAt], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json(newSupplier);
+  });
+});
+
+// --- Haulier Routes ---
+app.get('/api/hauliers', (req, res) => {
+  db.all("SELECT * FROM hauliers ORDER BY name ASC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(rows);
+  });
+});
+
+app.post('/api/hauliers', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ message: "Haulier name is required." });
+
+  const newHaulier = {
+    id: `haul_${Date.now()}`,
+    name: name,
+    status: 'Active',
+    createdAt: new Date().toISOString(),
+  };
+
+  const sql = `INSERT INTO hauliers (id, name, status, createdAt) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [newHaulier.id, newHaulier.name, newHaulier.status, newHaulier.createdAt], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json(newHaulier);
   });
 });
 

@@ -10,7 +10,10 @@ const BookingForm = ({
   bookingFormData,
   onClose,
   onSubmit,
-  onChange
+  onChange,
+  customers,
+  suppliers,
+  hauliers
 }) => (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
     <form onSubmit={onSubmit} className="bg-gray-800 w-full max-w-2xl p-6 rounded-xl space-y-4 border border-indigo-700 shadow-2xl">
@@ -33,6 +36,31 @@ const BookingForm = ({
             placeholder="e.g., 10"
           />
         </div>
+        <div>
+          <label htmlFor="customer_id" className="block text-sm font-medium text-gray-300 mb-1">Customer</label>
+          <select id="customer_id" name="customer_id" value={newBooking.customer_id || ''} onChange={onChange} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">-- Select Customer --</option>
+            {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        {newBooking.type === 'Inbound' && (
+          <div>
+            <label htmlFor="supplier_id" className="block text-sm font-medium text-gray-300 mb-1">Supplier</label>
+            <select id="supplier_id" name="supplier_id" value={newBooking.supplier_id || ''} onChange={onChange} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+              <option value="">-- Select Supplier --</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
+        {newBooking.type === 'Outbound' && (
+          <div>
+            <label htmlFor="haulier_id" className="block text-sm font-medium text-gray-300 mb-1">Haulier</label>
+            <select id="haulier_id" name="haulier_id" value={newBooking.haulier_id || ''} onChange={onChange} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500">
+              <option value="">-- Select Haulier --</option>
+              {hauliers.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+            </select>
+          </div>
+        )}
       </div>
       <div className="flex items-center">
         <input
@@ -151,6 +179,9 @@ const ScheduleView = ({ scheduleSettings }) => {
   const { bookings, loading, addBooking, deleteBooking, updateBooking, updateBookings } = useScheduleData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [hauliers, setHauliers] = useState([]);
   const [bookingToEdit, setBookingToEdit] = useState(null);
   const [newBooking, setNewBooking] = useState({
     name: '',
@@ -158,6 +189,9 @@ const ScheduleView = ({ scheduleSettings }) => {
     expectedPallets: '',
     isOpenBooking: false,
     // Repeat options
+    customer_id: null,
+    supplier_id: null,
+    haulier_id: null,
     repeat: 'none',
     repeatCount: 1,
     repeatOnDays: [], // Sunday: 0, Monday: 1, etc.
@@ -168,6 +202,20 @@ const ScheduleView = ({ scheduleSettings }) => {
     endTime: '',
   });
   
+  // Fetch related data for forms
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [custData, suppData, haulData] = await Promise.all([
+          api.getCustomers(), api.getSuppliers(), api.getHauliers()
+        ]);
+        setCustomers(custData);
+        setSuppliers(suppData);
+        setHauliers(haulData);
+      } catch (error) { console.error("Failed to fetch form data:", error); }
+    };
+    fetchData();
+  }, []);
   // --- Calendar Logic ---
   const getWeekDays = (date) => {
     const startOfWeek = new Date(date);
@@ -217,7 +265,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
 
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets'].includes(name)) {
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
       return;
     }
@@ -263,6 +311,9 @@ const ScheduleView = ({ scheduleSettings }) => {
       type: 'Inbound',
       expectedPallets: '',
       isOpenBooking: false,
+      customer_id: null,
+      supplier_id: null,
+      haulier_id: null,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [slotDate.getDay()], // Default to the day clicked
@@ -284,6 +335,9 @@ const ScheduleView = ({ scheduleSettings }) => {
       type: 'Inbound',
       expectedPallets: '',
       isOpenBooking: true, // Default to open booking
+      customer_id: null,
+      supplier_id: null,
+      haulier_id: null,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [today.getDay()],
@@ -306,6 +360,9 @@ const ScheduleView = ({ scheduleSettings }) => {
       name: booking.name,
       type: booking.type,
       expectedPallets: booking.expectedPallets || '',
+      customer_id: booking.customer_id,
+      supplier_id: booking.supplier_id,
+      haulier_id: booking.haulier_id,
       isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
@@ -328,7 +385,15 @@ const ScheduleView = ({ scheduleSettings }) => {
     if (bookingToEdit) {
       // Update existing booking
       const bookingToUpdate = {
-        ...bookingToEdit, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime, expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0, customer_id: null // Temp: Add customer_id
+        ...bookingToEdit, 
+        name: newBooking.name, 
+        type: newBooking.type, 
+        startDateTime: finalStartDateTime, 
+        endDateTime: finalEndDateTime, 
+        expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0, 
+        customer_id: newBooking.customer_id || null,
+        supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
+        haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
       };
       // Use the new updateBooking function from the hook
       updateBooking(bookingToUpdate);
@@ -355,7 +420,9 @@ const ScheduleView = ({ scheduleSettings }) => {
             seriesId: seriesId,
             name: newBooking.name, type: newBooking.type, status: 'Scheduled',
             expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0,
-            customer_id: null, // Temp: Add customer_id
+            customer_id: newBooking.customer_id || null,
+            supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
+            haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
             startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
             endDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:01` : `${entryDateStr}T${endTime}`,
           });
@@ -488,6 +555,9 @@ const ScheduleView = ({ scheduleSettings }) => {
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleAddBooking}
         onChange={handleFormChange}
+        customers={customers}
+        suppliers={suppliers}
+        hauliers={hauliers}
       />
       }
 
