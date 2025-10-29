@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Plus, Loader, Edit, Archive } from 'lucide-react';
+import { Building, Plus, Loader, Edit, Trash } from 'lucide-react';
 import * as api from './api.jsx';
 import AddCustomerModal from './AddCustomerModal';
+import EditCustomerModal from './EditCustomerModal';
 
 const CustomerSettings = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [customerToEdit, setCustomerToEdit] = useState(null);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -36,6 +39,34 @@ const CustomerSettings = () => {
     }
   };
 
+  const handleOpenEditModal = (customer) => {
+    setCustomerToEdit(customer);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateCustomer = async (id, customerDetails, associatedSupplierIds, associatedHaulierIds) => {
+    try {
+      await Promise.all([
+        api.updateCustomer(id, customerDetails),
+        api.updateCustomerSuppliers(id, associatedSupplierIds),
+        api.updateCustomerHauliers(id, associatedHaulierIds),
+      ]);
+      // Refetch customers to see name/status changes
+      const data = await api.getCustomers();
+      setCustomers(data);
+    } catch (err) {
+      setError("Failed to update customer suppliers. Please try again.");
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
+  const handleDeleteCustomer = async (id, name) => {
+    if (window.confirm(`Are you sure you want to permanently delete customer "${name}"? This will also delete all associated contracts and bookings.`)) {
+      await api.deleteCustomer(id);
+      setCustomers(prev => prev.filter(c => c.id !== id));
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -45,7 +76,7 @@ const CustomerSettings = () => {
             <p className="text-sm text-gray-400">Add, edit, and archive customer accounts.</p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsAddModalOpen(true)}
             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
             <Plus size={18} className="mr-2" />
@@ -75,7 +106,12 @@ const CustomerSettings = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${customer.status === 'Active' ? 'bg-green-900 text-green-300' : 'bg-gray-600 text-gray-300'}`}>{customer.status}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Date(customer.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-yellow-400 hover:text-yellow-300 p-1 rounded-full hover:bg-gray-600 transition-colors" title="Archive Customer (coming soon)"><Archive className="w-5 h-5" /></button>
+                        <button onClick={() => handleOpenEditModal(customer)} className="text-indigo-400 hover:text-indigo-300 p-1 rounded-full hover:bg-gray-600 transition-colors mr-2" title="Edit Customer">
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => handleDeleteCustomer(customer.id, customer.name)} className="text-red-400 hover:text-red-300 p-1 rounded-full hover:bg-gray-600 transition-colors" title="Delete Customer">
+                          <Trash className="w-5 h-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -85,7 +121,8 @@ const CustomerSettings = () => {
           )}
         </div>
       </div>
-      <AddCustomerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddCustomer={handleAddCustomer} />
+      <AddCustomerModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAddCustomer={handleAddCustomer} />
+      <EditCustomerModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onUpdate={handleUpdateCustomer} customer={customerToEdit} />
     </>
   );
 };

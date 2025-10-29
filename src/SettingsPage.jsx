@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Settings, Calendar, Users, ShieldAlert, Building, Truck, Factory } from 'lucide-react';
+import { Settings, Calendar, Users, ShieldAlert, Building } from 'lucide-react';
 import UserSettings from './UserSettings';
 import AdvancedSettings from './AdvancedSettings';
-import CustomerSettings from './CustomerSettings'; // We will create this next
-import SupplierSettings from './SupplierSettings';
-import HaulierSettings from './HaulierSettings';
+import CustomerSettings from './CustomerSettings';
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -87,8 +85,6 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'advanced', label: 'Advanced', icon: ShieldAlert },
     { id: 'customers', label: 'Customers', icon: Building },
-    { id: 'suppliers', label: 'Suppliers', icon: Factory },
-    { id: 'hauliers', label: 'Hauliers', icon: Truck },
   ];
 
   return (
@@ -131,12 +127,6 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
         )}
         {activeTab === 'customers' && (
           <CustomerSettings />
-        )}
-        {activeTab === 'suppliers' && (
-          <SupplierSettings />
-        )}
-        {activeTab === 'hauliers' && (
-          <HaulierSettings />
         )}
       </div>
     </div>

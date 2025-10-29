@@ -13,6 +13,7 @@ const BookingForm = ({
   customers,
   suppliers,
   hauliers,
+  contracts,
   isEditable,
   onSetEditable
 }) => {
@@ -60,6 +61,15 @@ const BookingForm = ({
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
+        {/* Contract Dropdown - only shows if a customer is selected */}
+        {newBooking.customer_id && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <select id="contract_id" name="contract_id" value={newBooking.contract_id || ''} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
+              <option value="">-- Select Contract (Optional) --</option>
+              {contracts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
         {newBooking.type === 'Inbound' && (
           <div>
             <label htmlFor="supplier_id" className="block text-sm font-medium text-gray-300 mb-1">Supplier</label>

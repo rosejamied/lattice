@@ -25,7 +25,10 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [filteredSuppliers, setFilteredSuppliers] = useState([]);
   const [hauliers, setHauliers] = useState([]);
+  const [filteredHauliers, setFilteredHauliers] = useState([]);
+  const [customerContracts, setCustomerContracts] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(true);
 
   // Form State
@@ -34,7 +37,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   const [bookingToEdit, setBookingToEdit] = useState(null);
   const [newBooking, setNewBooking] = useState({ // This state is for the form
     name: '', type: 'Inbound', expectedPallets: '', isOpenBooking: false,
-    customer_id: null, supplier_id: null, haulier_id: null,
+    customer_id: null, supplier_id: null, haulier_id: null, contract_id: null,
     repeat: 'none', repeatCount: 1, repeatOnDays: [],
   });
   const [bookingFormData, setBookingFormData] = useState({
@@ -97,7 +100,26 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   // --- Form and CRUD Logic ---
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status'].includes(name)) {
+
+    if (name === 'customer_id') {
+      if (value) {
+        Promise.all([
+          api.getCustomerContracts(value),
+          api.getCustomerSuppliers(value),
+          api.getCustomerHauliers(value)
+        ]).then(([contracts, supplierIds, haulierIds]) => {
+          setCustomerContracts(contracts);
+          setFilteredSuppliers(suppliers.filter(s => supplierIds.includes(s.id)));
+          setFilteredHauliers(hauliers.filter(h => haulierIds.includes(h.id)));
+        });
+      } else {
+        setCustomerContracts([]);
+        setFilteredSuppliers([]);
+        setFilteredHauliers([]);
+      }
+    }
+
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status', 'contract_id'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
     } else if (name === 'isOpenBooking') {
       setNewBooking(prev => ({ ...prev, isOpenBooking: e.target.checked }));
@@ -110,6 +132,18 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
     setBookingToEdit(booking);
     const startDate = new Date(booking.startDateTime);
     const endDate = new Date(booking.endDateTime);
+
+    if (booking.customer_id) {
+      Promise.all([
+        api.getCustomerContracts(booking.customer_id),
+        api.getCustomerSuppliers(booking.customer_id),
+        api.getCustomerHauliers(booking.customer_id)
+      ]).then(([contracts, supplierIds, haulierIds]) => {
+        setCustomerContracts(contracts);
+        setFilteredSuppliers(suppliers.filter(s => supplierIds.includes(s.id)));
+        setFilteredHauliers(hauliers.filter(h => haulierIds.includes(h.id)));
+      });
+    }
 
     setBookingFormData({
       date: startDate.toISOString().substring(0, 10),
@@ -125,6 +159,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
       customer_id: booking.customer_id,
       supplier_id: booking.supplier_id,
       haulier_id: booking.haulier_id,
+      contract_id: booking.contract_id,
       isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
@@ -150,6 +185,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
         customer_id: newBooking.customer_id || null,
         supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
         haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
+        contract_id: newBooking.contract_id || null,
         status: newBooking.status || 'Booked',
       };
       updateBooking(bookingToUpdate);
@@ -203,8 +239,11 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                     className={`p-3 rounded-lg flex justify-between items-start cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}
                   >
                     <div className="truncate flex-grow">
-                      <p className="font-bold text-white truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
-                      <p className="text-sm text-gray-300 truncate">{booking.name || 'No Reference'}</p>
+                      <p className="truncate">
+                        <span className="font-bold text-white">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                        {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
+                        {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
+                      </p>
                       {/* Times are hidden for open bookings */}
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-end ml-2">
@@ -244,8 +283,11 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                     >
                       <div className="flex justify-between items-start">
                         <div className="truncate">
-                          <p className="font-bold text-white text-sm truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
-                          <p className="text-xs text-gray-300 truncate">{booking.name || 'No Reference'}</p>
+                          <p className="font-bold text-white text-sm truncate">
+                            {customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}
+                            {booking.contractName && <span className="font-normal text-gray-300"> - {booking.contractName}</span>}
+                            {booking.name && <span className="font-normal text-gray-300"> - {booking.name}</span>}
+                          </p>
                           {!booking.startDateTime.endsWith('T00:00:00') && (
                             <p className="text-xs text-gray-400 mt-1">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           )}
@@ -274,8 +316,9 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
           onSubmit={handleFormSubmit}
           onChange={handleFormChange}
           customers={customers}
-          suppliers={suppliers}
-          hauliers={hauliers}
+          suppliers={filteredSuppliers}
+          hauliers={filteredHauliers}
+          contracts={customerContracts}
           isEditable={isFormEditable}
           onSetEditable={(e) => {
             e.preventDefault();

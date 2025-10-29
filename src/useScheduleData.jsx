@@ -75,6 +75,7 @@ export const useScheduleData = () => {
         supplier_id: updatedBooking.supplier_id,
         haulier_id: updatedBooking.haulier_id,
         status: updatedBooking.status,
+        contract_id: updatedBooking.contract_id,
       });
     } catch (error) {
       console.error("Failed to update booking on server:", error);

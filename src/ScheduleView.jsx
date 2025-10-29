@@ -28,8 +28,11 @@ const ScheduleView = ({ scheduleSettings }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [customers, setCustomers] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [hauliers, setHauliers] = useState([]);
+  const [allSuppliers, setAllSuppliers] = useState([]);
+  const [allHauliers, setAllHauliers] = useState([]);
+  const [filteredSuppliers, setFilteredSuppliers] = useState([]);
+  const [filteredHauliers, setFilteredHauliers] = useState([]);
+  const [customerContracts, setCustomerContracts] = useState([]);
   const [bookingToEdit, setBookingToEdit] = useState(null);
   const [isFormEditable, setIsFormEditable] = useState(false);
   const [newBooking, setNewBooking] = useState({
@@ -41,6 +44,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     customer_id: null,
     supplier_id: null,
     haulier_id: null,
+    contract_id: null,
     repeat: 'none',
     repeatCount: 1,
     repeatOnDays: [], // Sunday: 0, Monday: 1, etc.
@@ -59,8 +63,8 @@ const ScheduleView = ({ scheduleSettings }) => {
           api.getCustomers(), api.getSuppliers(), api.getHauliers()
         ]);
         setCustomers(custData);
-        setSuppliers(suppData);
-        setHauliers(haulData);
+        setAllSuppliers(suppData);
+        setAllHauliers(haulData);
       } catch (error) { console.error("Failed to fetch form data:", error); }
     };
     fetchData();
@@ -159,9 +163,28 @@ const ScheduleView = ({ scheduleSettings }) => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
 
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status'].includes(name)) {
+    // If the customer is changed, filter the suppliers and hauliers
+    if (name === 'customer_id') {
+      if (value) {
+        Promise.all([
+          api.getCustomerContracts(value),
+          api.getCustomerSuppliers(value),
+          api.getCustomerHauliers(value)
+        ]).then(([contracts, supplierIds, haulierIds]) => {
+          setCustomerContracts(contracts);
+          setFilteredSuppliers(allSuppliers.filter(s => supplierIds.includes(s.id)));
+          setFilteredHauliers(allHauliers.filter(h => haulierIds.includes(h.id)));
+        });
+      } else {
+        setCustomerContracts([]);
+        setFilteredSuppliers([]); // Clear lists if no customer is selected
+        setFilteredHauliers([]);
+      }
+    }
+
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status', 'contract_id'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
-      return;
+      if (name === 'customer_id') { setNewBooking(prev => ({ ...prev, contract_id: null, supplier_id: null, haulier_id: null })); } // Reset dependent fields
     }
 
     if (name === 'isOpenBooking') {
@@ -208,10 +231,13 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: null,
       supplier_id: null,
       haulier_id: null,
+      contract_id: null,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [slotDate.getDay()], // Default to the day clicked
     });
+    setFilteredSuppliers([]); // Reset filters for new booking
+    setFilteredHauliers([]);
     setIsFormOpen(true);
     setIsFormEditable(true); // New bookings are editable by default
   };
@@ -233,10 +259,13 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: null,
       supplier_id: null,
       haulier_id: null,
+      contract_id: null,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [today.getDay()],
     });
+    setFilteredSuppliers([]); // Reset filters for new booking
+    setFilteredHauliers([]);
     setIsFormOpen(true);
     setIsFormEditable(true); // New bookings are editable by default
   };
@@ -245,6 +274,19 @@ const ScheduleView = ({ scheduleSettings }) => {
     setBookingToEdit(booking);
     const startDate = new Date(booking.startDateTime);
     const endDate = new Date(booking.endDateTime);
+
+    // Pre-filter the suppliers and hauliers for the selected booking's customer
+    if (booking.customer_id) {
+      Promise.all([
+        api.getCustomerContracts(booking.customer_id),
+        api.getCustomerSuppliers(booking.customer_id),
+        api.getCustomerHauliers(booking.customer_id)
+      ]).then(([contracts, supplierIds, haulierIds]) => {
+        setCustomerContracts(contracts);
+        setFilteredSuppliers(allSuppliers.filter(s => supplierIds.includes(s.id)));
+        setFilteredHauliers(allHauliers.filter(h => haulierIds.includes(h.id)));
+      });
+    }
 
     setBookingFormData({
       date: startDate.toISOString().substring(0, 10),
@@ -260,6 +302,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: booking.customer_id,
       supplier_id: booking.supplier_id,
       haulier_id: booking.haulier_id,
+      contract_id: booking.contract_id,
       isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
@@ -292,6 +335,7 @@ const ScheduleView = ({ scheduleSettings }) => {
         customer_id: newBooking.customer_id || null,
         supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
         haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
+        contract_id: newBooking.contract_id || null,
         status: newBooking.status || 'Booked',
       };
       // Use the new updateBooking function from the hook
@@ -322,6 +366,7 @@ const ScheduleView = ({ scheduleSettings }) => {
             customer_id: newBooking.customer_id || null, status: 'Booked',
             supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
             haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
+            contract_id: newBooking.contract_id || null,
             startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
             endDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:01` : `${entryDateStr}T${endTime}`,
           });
@@ -413,6 +458,7 @@ const ScheduleView = ({ scheduleSettings }) => {
                                 <p className="truncate">
                                   <span className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                   <span className="font-bold ml-2">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                                  {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
                                   {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
                                 </p>
                               </div>
@@ -448,8 +494,9 @@ const ScheduleView = ({ scheduleSettings }) => {
         onSubmit={handleAddBooking}
         onChange={handleFormChange}
         customers={customers}
-        suppliers={suppliers}
-        hauliers={hauliers}
+        suppliers={filteredSuppliers}
+        hauliers={filteredHauliers}
+        contracts={customerContracts}
         isEditable={isFormEditable}
         onSetEditable={(e) => {
           e.preventDefault();
@@ -476,7 +523,8 @@ const ScheduleView = ({ scheduleSettings }) => {
                       <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
                         <p className="truncate">
                           <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
-                          {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
+                          {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
+                          {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
                         </p>
                       </div>
                     ))}
@@ -499,7 +547,8 @@ const ScheduleView = ({ scheduleSettings }) => {
                   <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
                     <p className="truncate">
                       <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
-                      {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
+                      {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
+                      {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
                     </p>
                   </div>
                 ))}

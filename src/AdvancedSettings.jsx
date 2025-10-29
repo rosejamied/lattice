@@ -32,6 +32,31 @@ const AdvancedSettings = () => {
           console.error(`Failed to clear ${dataType}:`, error);
           alert(`An error occurred while clearing ${dataType}: ${error.message}`);
         }
+      } else if (dataType === 'suppliers') {
+        try {
+          await api.clearSuppliers();
+          alert('All supplier data has been successfully cleared.');
+        } catch (error) {
+          console.error(`Failed to clear ${dataType}:`, error);
+          alert(`An error occurred while clearing ${dataType}: ${error.message}`);
+        }
+      } else if (dataType === 'bookings') {
+        try {
+          // This part is not yet implemented in the API
+          alert(`${dataType} data clearing is not yet implemented.`);
+        } catch (error) {
+          console.error(`Failed to clear ${dataType}:`, error);
+          alert(`An error occurred while clearing ${dataType}: ${error.message}`);
+        }
+      } else if (dataType === 'hauliers') {
+        try {
+          await api.clearHauliers();
+          alert('All haulier data has been successfully cleared.');
+          window.location.reload();
+        } catch (error) {
+          console.error(`Failed to clear ${dataType}:`, error);
+          alert(`An error occurred while clearing ${dataType}: ${error.message}`);
+        }
       } else {
         alert(`${dataType} data clearing is not yet implemented.`);
       }
@@ -134,6 +159,14 @@ const AdvancedSettings = () => {
             <div className="flex justify-between items-center">
               <p className="text-gray-300">Clear all schedule & booking data.</p>
               <DangerButton onClick={() => handleClearData('bookings')}><Trash2 size={16} className="mr-2" />Clear Bookings</DangerButton>
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="text-gray-300">Clear all supplier data.</p>
+              <DangerButton onClick={() => handleClearData('suppliers')}><Trash2 size={16} className="mr-2" />Clear Suppliers</DangerButton>
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="text-gray-300">Clear all haulier data.</p>
+              <DangerButton onClick={() => handleClearData('hauliers')}><Trash2 size={16} className="mr-2" />Clear Hauliers</DangerButton>
             </div>
           </div>
         </div>

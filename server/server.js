@@ -57,11 +57,37 @@ db.serialize(() => {
     else if (err) { console.error('Error adding "haulier_id" to "bookings":', err.message); }
     else { console.log('Column "haulier_id" added to "bookings" table.'); }
   });
+
+  // Add customer_suppliers join table
+  db.run(`CREATE TABLE IF NOT EXISTS customer_suppliers (
+    customer_id TEXT NOT NULL, supplier_id TEXT NOT NULL, PRIMARY KEY (customer_id, supplier_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE
+  )`, (err) => { if (err) { console.error("Error creating customer_suppliers table:", err.message); }});
+
+  // Add customer_hauliers join table
+  db.run(`CREATE TABLE IF NOT EXISTS customer_hauliers (
+    customer_id TEXT NOT NULL, haulier_id TEXT NOT NULL, PRIMARY KEY (customer_id, haulier_id),
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+    FOREIGN KEY (haulier_id) REFERENCES hauliers(id) ON DELETE CASCADE
+  )`, (err) => { if (err) { console.error("Error creating customer_suppliers table:", err.message); }});
+
+  // Add contract_id to bookings table
+  db.run(`ALTER TABLE bookings ADD COLUMN contract_id TEXT`, (err) => {
+    if (err && err.message.includes('duplicate column name')) { /* Ignore */ }
+    else if (err) { console.error('Error adding "contract_id" to "bookings":', err.message); }
+  });
+
+  // Add contracts table
+  db.run(`CREATE TABLE IF NOT EXISTS contracts (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, customer_id TEXT NOT NULL, createdAt TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+  )`, (err) => { if (err) { console.error("Error creating contracts table:", err.message); }});
 });
 
 // Create bookings table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS bookings (
-  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT, supplier_id TEXT, haulier_id TEXT
+  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT, supplier_id TEXT, haulier_id TEXT, contract_id TEXT
 )`);
 
 // Create inventory table if it doesn't exist
@@ -103,7 +129,12 @@ app.get('/api', (req, res) => {
 
 // GET all bookings
 app.get('/api/bookings', (req, res) => {
-  db.all("SELECT * FROM bookings ORDER BY startDateTime ASC", [], (err, rows) => {
+  const sql = `
+    SELECT b.*, c.name as contractName 
+    FROM bookings b
+    LEFT JOIN contracts c ON b.contract_id = c.id
+    ORDER BY b.startDateTime ASC`;
+  db.all(sql, [], (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
@@ -119,9 +150,9 @@ app.post('/api/bookings', (req, res) => {
     return res.status(400).json({ message: 'Request body must be an array of bookings.' });
   }
 
-  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets, customer_id, supplier_id, haulier_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets, customer_id, supplier_id, haulier_id, contract_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
   newBookings.forEach(booking => {
-    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status || 'Booked', booking.expectedPallets, booking.customer_id, booking.supplier_id, booking.haulier_id);
+    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status || 'Booked', booking.expectedPallets, booking.customer_id, booking.supplier_id, booking.haulier_id, booking.contract_id);
   });
   stmt.finalize((err) => {
     if (err) {
@@ -134,9 +165,9 @@ app.post('/api/bookings', (req, res) => {
 // PUT (update) a booking by ID
 app.put('/api/bookings/:id', (req, res) => {
   const { id } = req.params;
-  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id, supplier_id, haulier_id, status } = req.body;
+  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id, supplier_id, haulier_id, status, contract_id } = req.body;
 
-  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ?, supplier_id = ?, haulier_id = ?, status = ? WHERE id = ?`;
+  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ?, supplier_id = ?, haulier_id = ?, status = ?, contract_id = ? WHERE id = ?`;
 
   const params = [
     name,
@@ -148,6 +179,7 @@ app.put('/api/bookings/:id', (req, res) => {
     supplier_id || null,
     haulier_id || null,
     status || 'Booked',
+    contract_id || null,
     id
   ];
   db.run(sql, params, function(err) {
@@ -339,6 +371,156 @@ app.post('/api/customers', (req, res) => {
   });
 });
 
+// DELETE a customer by ID
+app.delete('/api/customers/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM customers WHERE id = ?`, id, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(this.changes > 0 ? 204 : 404).send();
+  });
+});
+
+// PUT (update) a customer by ID
+app.put('/api/customers/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, status, isSupplier, isHaulier } = req.body;
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+
+    // Update the customer table
+    db.run(`UPDATE customers SET name = ?, status = ? WHERE id = ?`, [name, status, id]);
+
+    // Handle "is also a supplier" logic
+    if (isSupplier) {
+      db.run(`INSERT OR REPLACE INTO suppliers (id, name, status, createdAt) VALUES (?, ?, 'Active', COALESCE((SELECT createdAt FROM suppliers WHERE id = ?), ?))`, [`supp_from_${id}`, name, `supp_from_${id}`, new Date().toISOString()]);
+    } else {
+      db.run(`DELETE FROM suppliers WHERE id = ?`, [`supp_from_${id}`]);
+    }
+
+    // Handle "is also a haulier" logic
+    if (isHaulier) {
+      db.run(`INSERT OR REPLACE INTO hauliers (id, name, status, createdAt) VALUES (?, ?, 'Active', COALESCE((SELECT createdAt FROM hauliers WHERE id = ?), ?))`, [`haul_from_${id}`, name, `haul_from_${id}`, new Date().toISOString()]);
+    } else {
+      db.run(`DELETE FROM hauliers WHERE id = ?`, [`haul_from_${id}`]);
+    }
+
+    db.run("COMMIT", (err) => {
+      if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
+      res.status(200).json({ message: "Customer updated successfully." });
+    });
+  });
+});
+
+// GET a customer's associated suppliers
+app.get('/api/customers/:id/suppliers', (req, res) => {
+  const { id } = req.params;
+  const sql = `
+    SELECT s.id, s.name FROM suppliers s
+    JOIN customer_suppliers cs ON s.id = cs.supplier_id
+    WHERE cs.customer_id = ?
+  `;
+  db.all(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(rows.map(r => r.id)); // Return an array of supplier IDs
+  });
+});
+
+// PUT (update) a customer's associated suppliers
+app.put('/api/customers/:id/suppliers', (req, res) => {
+  const { id } = req.params;
+  const { supplierIds } = req.body; // Expecting an array of supplier IDs
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    // First, delete all existing associations for this customer
+    db.run("DELETE FROM customer_suppliers WHERE customer_id = ?", [id]);
+    // Then, insert the new associations
+    const stmt = db.prepare("INSERT INTO customer_suppliers (customer_id, supplier_id) VALUES (?, ?)");
+    supplierIds.forEach(supplierId => {
+      stmt.run(id, supplierId);
+    });
+    stmt.finalize(err => {
+      if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
+      db.run("COMMIT", () => res.status(200).json({ message: "Customer suppliers updated successfully." }));
+    });
+  });
+});
+
+// GET a customer's associated hauliers
+app.get('/api/customers/:id/hauliers', (req, res) => {
+  const { id } = req.params;
+  const sql = `
+    SELECT h.id, h.name FROM hauliers h
+    JOIN customer_hauliers ch ON h.id = ch.haulier_id
+    WHERE ch.customer_id = ?
+  `;
+  db.all(sql, [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(rows.map(r => r.id)); // Return an array of haulier IDs
+  });
+});
+
+// PUT (update) a customer's associated hauliers
+app.put('/api/customers/:id/hauliers', (req, res) => {
+  const { id } = req.params;
+  const { haulierIds } = req.body; // Expecting an array of haulier IDs
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    // First, delete all existing associations for this customer
+    db.run("DELETE FROM customer_hauliers WHERE customer_id = ?", [id]);
+    // Then, insert the new associations
+    const stmt = db.prepare("INSERT INTO customer_hauliers (customer_id, haulier_id) VALUES (?, ?)");
+    haulierIds.forEach(haulierId => {
+      stmt.run(id, haulierId);
+    });
+    stmt.finalize(err => {
+      if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
+      db.run("COMMIT", () => res.status(200).json({ message: "Customer hauliers updated successfully." }));
+    });
+  });
+});
+
+// --- Contract Routes ---
+
+// GET all contracts for a specific customer
+app.get('/api/customers/:id/contracts', (req, res) => {
+  const { id } = req.params;
+  db.all("SELECT * FROM contracts WHERE customer_id = ? ORDER BY name ASC", [id], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(rows);
+  });
+});
+
+// POST a new contract
+app.post('/api/contracts', (req, res) => {
+  const { name, customer_id } = req.body;
+  if (!name || !customer_id) {
+    return res.status(400).json({ message: "Contract name and customer_id are required." });
+  }
+  const newContract = {
+    id: `cont_${Date.now()}`,
+    name,
+    customer_id,
+    createdAt: new Date().toISOString(),
+  };
+  const sql = `INSERT INTO contracts (id, name, customer_id, createdAt) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [newContract.id, newContract.name, newContract.customer_id, newContract.createdAt], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json(newContract);
+  });
+});
+
+// DELETE a contract by ID
+app.delete('/api/contracts/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM contracts WHERE id = ?`, id, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(this.changes > 0 ? 204 : 404).send();
+  });
+});
+
 // --- Supplier Routes ---
 app.get('/api/suppliers', (req, res) => {
   db.all("SELECT * FROM suppliers ORDER BY name ASC", [], (err, rows) => {
@@ -365,6 +547,15 @@ app.post('/api/suppliers', (req, res) => {
   });
 });
 
+// DELETE all suppliers
+app.delete('/api/suppliers/all', (req, res) => {
+  db.run(`DELETE FROM suppliers`, [], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    console.log(`All supplier data cleared. ${this.changes} rows affected.`);
+    res.status(204).send();
+  });
+});
+
 // --- Haulier Routes ---
 app.get('/api/hauliers', (req, res) => {
   db.all("SELECT * FROM hauliers ORDER BY name ASC", [], (err, rows) => {
@@ -388,6 +579,15 @@ app.post('/api/hauliers', (req, res) => {
   db.run(sql, [newHaulier.id, newHaulier.name, newHaulier.status, newHaulier.createdAt], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json(newHaulier);
+  });
+});
+
+// DELETE all hauliers
+app.delete('/api/hauliers/all', (req, res) => {
+  db.run(`DELETE FROM hauliers`, [], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    console.log(`All haulier data cleared. ${this.changes} rows affected.`);
+    res.status(204).send();
   });
 });
 

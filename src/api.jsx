@@ -165,6 +165,83 @@ export const addCustomer = (customerData) => {
   return handleRequest(axios.post(`${API_BASE_URL}/customers`, customerData));
 };
 
+/**
+ * Updates an existing customer's details.
+ * @param {string} id - The ID of the customer to update.
+ * @param {object} customerData - The updated customer data.
+ */
+export const updateCustomer = (id, customerData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/customers/${id}`, customerData));
+};
+
+/**
+ * Deletes a customer by its ID.
+ * @param {string} id - The ID of the customer to delete.
+ */
+export const deleteCustomer = (id) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/customers/${id}`));
+};
+
+/**
+ * Fetches an array of supplier IDs for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ */
+export const getCustomerSuppliers = (customerId) => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers/${customerId}/suppliers`));
+};
+
+/**
+ * Updates the list of suppliers for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ * @param {Array<string>} supplierIds - An array of supplier IDs to associate.
+ */
+export const updateCustomerSuppliers = (customerId, supplierIds) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/customers/${customerId}/suppliers`, { supplierIds }));
+};
+
+/**
+ * Fetches an array of haulier IDs for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ */
+export const getCustomerHauliers = (customerId) => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers/${customerId}/hauliers`));
+};
+
+/**
+ * Updates the list of hauliers for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ * @param {Array<string>} haulierIds - An array of haulier IDs to associate.
+ */
+export const updateCustomerHauliers = (customerId, haulierIds) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/customers/${customerId}/hauliers`, { haulierIds }));
+};
+
+// --- Contracts API ---
+
+/**
+ * Fetches all contracts for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ */
+export const getCustomerContracts = (customerId) => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers/${customerId}/contracts`));
+};
+
+/**
+ * Adds a new contract for a customer.
+ * @param {object} contractData - The new contract data { name, customer_id }.
+ */
+export const addContract = (contractData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/contracts`, contractData));
+};
+
+/**
+ * Deletes a contract by its ID.
+ * @param {string} contractId - The ID of the contract to delete.
+ */
+export const deleteContract = (contractId) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/contracts/${contractId}`));
+};
+
 // --- Suppliers API ---
 
 /**
@@ -190,6 +267,13 @@ export const updateSupplier = (id, supplierData) => {
   return handleRequest(axios.put(`${API_BASE_URL}/suppliers/${id}`, supplierData));
 };
 
+/**
+ * Deletes all suppliers.
+ */
+export const clearSuppliers = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/suppliers/all`));
+};
+
 // --- Hauliers API ---
 
 /**
@@ -204,4 +288,11 @@ export const getHauliers = () => {
  */
 export const addHaulier = (haulierData) => {
   return handleRequest(axios.post(`${API_BASE_URL}/hauliers`, haulierData));
+};
+
+/**
+ * Deletes all hauliers.
+ */
+export const clearHauliers = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/hauliers/all`));
 };
