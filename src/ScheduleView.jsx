@@ -442,137 +442,139 @@ const ScheduleView = ({ scheduleSettings }) => {
   };
 
   return (
-    <div className="p-4 space-y-4 flex flex-col h-full">
-      {/* Header and Navigation */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white flex items-center">
-          <Calendar className="w-6 h-6 mr-3 text-indigo-400" />
-          Weekly Schedule
-        </h1>
-        <div className="flex items-center gap-2">
-          <button onClick={goToPreviousWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronLeft className="w-5 h-5" /></button>
-          <button onClick={goToToday} className="px-3 py-1.5 text-sm bg-gray-700 rounded-md hover:bg-gray-600 transition">Today</button>
-          <button onClick={goToNextWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronRight className="w-5 h-5" /></button>
-          <span className="text-lg font-semibold text-gray-300 w-48 text-center">
-            {weekDays[0].toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </span>
-          <button
-            onClick={openFormForNewOpenBooking}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
+    <div className="w-1/2 mx-auto">
+      <div className="p-4 space-y-4 flex flex-col h-full">
+        {/* Header and Navigation */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-white flex items-center">
+            <Calendar className="w-6 h-6 mr-3 text-indigo-400" />
+            Weekly Schedule
+          </h1>
+          <div className="flex items-center gap-2">
+            <button onClick={goToPreviousWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronLeft className="w-5 h-5" /></button>
+            <button onClick={goToToday} className="px-3 py-1.5 text-sm bg-gray-700 rounded-md hover:bg-gray-600 transition">Today</button>
+            <button onClick={goToNextWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronRight className="w-5 h-5" /></button>
+            <span className="text-lg font-semibold text-gray-300 w-48 text-center">
+              {weekDays[0].toLocaleString('default', { month: 'long', year: 'numeric' })}
+            </span>
+            <button
+              onClick={openFormForNewOpenBooking}
+              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
+            >
+              <Plus className="w-5 h-5 mr-2" /> New Booking
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="flex-grow overflow-auto bg-gray-800 rounded-xl shadow-lg">
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `repeat(${weekDays.length || 1}, 1fr)` }}
           >
-            <Plus className="w-5 h-5 mr-2" /> New Booking
-          </button>
-        </div>
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="flex-grow overflow-auto bg-gray-800 rounded-xl shadow-lg">
-        <div
-          className="grid"
-          style={{ gridTemplateColumns: `repeat(${weekDays.length || 1}, 1fr)` }}
-        >
-          {/* Header Row */}
-          {weekDays.map(day => (
-            <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 border-b border-l border-gray-700">
-              <div className="text-center p-2">
-                <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
-                <p className="text-lg font-bold">{day.getDate()}</p>
-              </div>
-              {/* Open Bookings Area */}
-              <div className="border-t border-gray-700 p-1 space-y-1 min-h-[2rem]">
-                {(openBookingsByDay[`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`] || []).map(booking => (
-                  <div key={booking.id}
-                    onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
-                    className={`p-1.5 rounded-md text-xs cursor-pointer overflow-hidden text-center ${booking.type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800'}`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="truncate">
-                        <p className="font-bold truncate">{booking.name}</p>
-                        <p className="text-gray-300 truncate text-left">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+            {/* Header Row */}
+            {weekDays.map(day => (
+              <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 border-b border-l border-gray-700">
+                <div className="text-center p-2">
+                  <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
+                  <p className="text-lg font-bold">{day.getDate()}</p>
+                </div>
+                {/* Open Bookings Area */}
+                <div className="border-t border-gray-700 p-1 space-y-1 min-h-[2rem]">
+                  {(openBookingsByDay[`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`] || []).map(booking => (
+                    <div key={booking.id}
+                      onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                      className={`p-1.5 rounded-md text-xs cursor-pointer overflow-hidden text-center ${booking.type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800'}`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="truncate">
+                          <p className="font-bold truncate">{booking.name}</p>
+                          <p className="text-gray-300 truncate text-left">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                        </div>
+                        {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                       </div>
-                      {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          {/* Time Slots and Bookings */}
-          {timeSlots.map(time => (
-            <React.Fragment key={time}>
-              {weekDays.map(day => {
-                const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
-                const slotBookings = bookingsBySlot[slotKey] || [];
-                return (
-                  <div
-                    key={`${day.toISOString()}-${time}`}
-                    onClick={() => openFormForSlot(day, parseInt(time))}
-                    className="relative border-b border-l border-gray-700 h-14 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
-                  >
-                    <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
-                    {slotBookings.map((booking, index) => {
-                      const durationHours = (booking.endDate - booking.startDate) / (1000 * 60 * 60);
-                      const height = `calc(${durationHours * 100}% - 4px)`; // 4px for padding
-                      const top = `${(booking.startDate.getMinutes() / 60) * 100}%`;
+            {/* Time Slots and Bookings */}
+            {timeSlots.map(time => (
+              <React.Fragment key={time}>
+                {weekDays.map(day => {
+                  const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
+                  const slotBookings = bookingsBySlot[slotKey] || [];
+                  return (
+                    <div
+                      key={`${day.toISOString()}-${time}`}
+                      onClick={() => openFormForSlot(day, parseInt(time))}
+                      className="relative border-b border-l border-gray-700 h-14 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                    >
+                      <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
+                      {slotBookings.map((booking, index) => {
+                        const durationHours = (booking.endDate - booking.startDate) / (1000 * 60 * 60);
+                        const height = `calc(${durationHours * 100}% - 4px)`; // 4px for padding
+                        const top = `${(booking.startDate.getMinutes() / 60) * 100}%`;
 
-                      // Indent overlapping bookings
-                      const width = `calc(${100 - index * 10}% - 4px)`;
-                      const left = `${index * 5}%`;
+                        // Indent overlapping bookings
+                        const width = `calc(${100 - index * 10}% - 4px)`;
+                        const left = `${index * 5}%`;
 
-                      return (
-                      <div
-                        key={booking.id}
-                        onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
-                        className={`absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/70 border-l-2 border-green-400 hover:bg-green-900' : 'bg-orange-900/70 border-l-2 border-orange-400 hover:bg-orange-900'}`}
-                        style={{ height, top, width, left }}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="truncate">
-                            <p className="font-bold truncate">{booking.name}</p>
-                            <p className="text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                        return (
+                        <div
+                          key={booking.id}
+                          onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                          className={`absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/70 border-l-2 border-green-400 hover:bg-green-900' : 'bg-orange-900/70 border-l-2 border-orange-400 hover:bg-orange-900'}`}
+                          style={{ height, top, width, left }}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="truncate">
+                              <p className="font-bold truncate">{booking.name}</p>
+                              <p className="text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                            </div>
+                            {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                           </div>
-                          {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
+                          <div className="flex justify-between items-center">
+                            <p className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }}
+                              className="text-red-400 hover:text-red-200 opacity-50 hover:opacity-100"
+                            >
+                              <Trash className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex justify-between items-center">
-                          <p className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }}
-                            className="text-red-400 hover:text-red-200 opacity-50 hover:opacity-100"
-                          >
-                            <Trash className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </React.Fragment>
-          ))}
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </div>
         </div>
+
+        {/* Modal Form */}
+        {isFormOpen && <BookingForm
+          bookingToEdit={bookingToEdit}
+          newBooking={newBooking}
+          bookingFormData={bookingFormData}
+          onClose={() => setIsFormOpen(false)}
+          onSubmit={handleAddBooking}
+          onChange={handleFormChange}
+          customers={customers}
+          suppliers={suppliers}
+          hauliers={hauliers}
+        />
+        }
+
+        {loading ? (
+          <div className="flex justify-center items-center py-10 text-indigo-400">
+            <Loader className="w-8 h-8 animate-spin mr-2" /> Loading Schedule Data...
+          </div>
+        ) : null}
       </div>
-
-      {/* Modal Form */}
-      {isFormOpen && <BookingForm
-        bookingToEdit={bookingToEdit}
-        newBooking={newBooking}
-        bookingFormData={bookingFormData}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={handleAddBooking}
-        onChange={handleFormChange}
-        customers={customers}
-        suppliers={suppliers}
-        hauliers={hauliers}
-      />
-      }
-
-      {loading ? (
-        <div className="flex justify-center items-center py-10 text-indigo-400">
-          <Loader className="w-8 h-8 animate-spin mr-2" /> Loading Schedule Data...
-        </div>
-      ) : null}
     </div>
   );
 };
