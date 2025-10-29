@@ -328,7 +328,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     if (bookingToEdit) {
       // Update existing booking
       const bookingToUpdate = {
-        ...bookingToEdit, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime, expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0
+        ...bookingToEdit, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime, expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0, customer_id: null // Temp: Add customer_id
       };
       // Use the new updateBooking function from the hook
       updateBooking(bookingToUpdate);
@@ -355,6 +355,7 @@ const ScheduleView = ({ scheduleSettings }) => {
             seriesId: seriesId,
             name: newBooking.name, type: newBooking.type, status: 'Scheduled',
             expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0,
+            customer_id: null, // Temp: Add customer_id
             startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
             endDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:01` : `${entryDateStr}T${endTime}`,
           });

@@ -74,9 +74,9 @@ app.post('/api/bookings', (req, res) => {
     return res.status(400).json({ message: 'Request body must be an array of bookings.' });
   }
 
-  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
   newBookings.forEach(booking => {
-    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status, booking.expectedPallets);
+    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status, booking.expectedPallets, booking.customer_id);
   });
   stmt.finalize((err) => {
     if (err) {
@@ -89,11 +89,11 @@ app.post('/api/bookings', (req, res) => {
 // PUT (update) a booking by ID
 app.put('/api/bookings/:id', (req, res) => {
   const { id } = req.params;
-  const { name, type, startDateTime, endDateTime, expectedPallets } = req.body;
+  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id } = req.body;
 
-  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ? WHERE id = ?`;
+  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ? WHERE id = ?`;
 
-  db.run(sql, [name, type, startDateTime, endDateTime, expectedPallets, id], function(err) {
+  db.run(sql, [name, type, startDateTime, endDateTime, expectedPallets, customer_id, id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -151,9 +151,9 @@ app.get('/api/inventory', (req, res) => {
 
 // POST a new inventory item
 app.post('/api/inventory', (req, res) => {
-  const { id, name, sku, quantity, location, createdAt, updatedAt } = req.body;
-  const sql = `INSERT INTO inventory (id, name, sku, quantity, location, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [id, name, sku, quantity, location, createdAt, updatedAt], function(err) {
+  const { id, name, sku, quantity, location, createdAt, updatedAt, customer_id } = req.body;
+  const sql = `INSERT INTO inventory (id, name, sku, quantity, location, createdAt, updatedAt, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.run(sql, [id, name, sku, quantity, location, createdAt, updatedAt, customer_id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json({ id: this.lastID, ...req.body });
   });
@@ -166,13 +166,13 @@ app.post('/api/inventory/bulk', (req, res) => {
     return res.status(400).json({ message: 'Request body must be a non-empty array of inventory items.' });
   }
 
-  const sql = `INSERT INTO inventory (id, name, sku, quantity, location, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  const sql = `INSERT INTO inventory (id, name, sku, quantity, location, createdAt, updatedAt, customer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
   
   db.serialize(() => {
     db.run("BEGIN TRANSACTION");
     const stmt = db.prepare(sql);
     items.forEach(item => {
-      stmt.run(item.id, item.name, item.sku, item.quantity, item.location, item.createdAt, item.updatedAt);
+      stmt.run(item.id, item.name, item.sku, item.quantity, item.location, item.createdAt, item.updatedAt, item.customer_id);
     });
     stmt.finalize((err) => {
       if (err) {
@@ -187,9 +187,9 @@ app.post('/api/inventory/bulk', (req, res) => {
 // PUT (update) an inventory item by ID
 app.put('/api/inventory/:id', (req, res) => {
   const { id } = req.params;
-  const { name, sku, quantity, location, updatedAt } = req.body;
-  const sql = `UPDATE inventory SET name = ?, sku = ?, quantity = ?, location = ?, updatedAt = ? WHERE id = ?`;
-  db.run(sql, [name, sku, quantity, location, updatedAt, id], function(err) {
+  const { name, sku, quantity, location, updatedAt, customer_id } = req.body;
+  const sql = `UPDATE inventory SET name = ?, sku = ?, quantity = ?, location = ?, updatedAt = ?, customer_id = ? WHERE id = ?`;
+  db.run(sql, [name, sku, quantity, location, updatedAt, customer_id, id], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.status(this.changes > 0 ? 200 : 404).json({ message: "Inventory item updated" });
   });
@@ -248,6 +248,37 @@ app.post('/api/users', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     res.status(201).json({ id, username, firstName, lastName, role, createdAt });
+  });
+});
+
+// --- Customer Routes ---
+
+// GET all customers
+app.get('/api/customers', (req, res) => {
+  db.all("SELECT * FROM customers ORDER BY name ASC", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(200).json(rows);
+  });
+});
+
+// POST a new customer
+app.post('/api/customers', (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ message: "Customer name is required." });
+  }
+
+  const newCustomer = {
+    id: `cust_${Date.now()}`,
+    name: name,
+    status: 'Active',
+    createdAt: new Date().toISOString(),
+  };
+
+  const sql = `INSERT INTO customers (id, name, status, createdAt) VALUES (?, ?, ?, ?)`;
+  db.run(sql, [newCustomer.id, newCustomer.name, newCustomer.status, newCustomer.createdAt], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(201).json(newCustomer);
   });
 });
 

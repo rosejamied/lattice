@@ -147,3 +147,20 @@ export const addUser = (userData) => {
 export const login = (credentials) => {
   return handleRequest(axios.post(`${API_BASE_URL}/login`, credentials));
 };
+
+// --- Customers API ---
+
+/**
+ * Fetches all customers from the server.
+ */
+export const getCustomers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers`));
+};
+
+/**
+ * Adds a new customer.
+ * @param {object} customerData - The new customer data { name }.
+ */
+export const addCustomer = (customerData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/customers`, customerData));
+};
