@@ -121,7 +121,7 @@ app.post('/api/bookings', (req, res) => {
 
   const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets, customer_id, supplier_id, haulier_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
   newBookings.forEach(booking => {
-    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status, booking.expectedPallets, booking.customer_id, booking.supplier_id, booking.haulier_id);
+    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status || 'Booked', booking.expectedPallets, booking.customer_id, booking.supplier_id, booking.haulier_id);
   });
   stmt.finalize((err) => {
     if (err) {
@@ -134,9 +134,9 @@ app.post('/api/bookings', (req, res) => {
 // PUT (update) a booking by ID
 app.put('/api/bookings/:id', (req, res) => {
   const { id } = req.params;
-  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id, supplier_id, haulier_id } = req.body;
+  const { name, type, startDateTime, endDateTime, expectedPallets, customer_id, supplier_id, haulier_id, status } = req.body;
 
-  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ?, supplier_id = ?, haulier_id = ? WHERE id = ?`;
+  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ?, customer_id = ?, supplier_id = ?, haulier_id = ?, status = ? WHERE id = ?`;
 
   const params = [
     name,
@@ -147,6 +147,7 @@ app.put('/api/bookings/:id', (req, res) => {
     customer_id || null,
     supplier_id || null,
     haulier_id || null,
+    status || 'Booked',
     id
   ];
   db.run(sql, params, function(err) {

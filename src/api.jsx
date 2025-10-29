@@ -181,6 +181,15 @@ export const addSupplier = (supplierData) => {
   return handleRequest(axios.post(`${API_BASE_URL}/suppliers`, supplierData));
 };
 
+/**
+ * Updates an existing supplier.
+ * @param {string} id - The ID of the supplier to update.
+ * @param {object} supplierData - The updated supplier data.
+ */
+export const updateSupplier = (id, supplierData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/suppliers/${id}`, supplierData));
+};
+
 // --- Hauliers API ---
 
 /**

@@ -4,6 +4,22 @@ import { useScheduleData } from './useScheduleData';
 import * as api from './api.jsx'; // Needed to fetch customer data
 import BookingForm from './BookingForm.jsx';
 
+const getStatusClasses = (status, type) => {
+  switch (status) {
+    case 'Arrived':
+      return 'bg-cyan-800/80';
+    case 'Allocated':
+      return 'bg-yellow-800/80';
+    case 'Picked':
+      return 'bg-purple-800/80';
+    case 'Completed':
+      return 'bg-gray-700/80 text-gray-400';
+    case 'Booked':
+    default:
+      return type === 'Inbound' ? 'bg-green-800/80' : 'bg-orange-800/80';
+  }
+};
+
 const MSchedule = ({ navigateBack, scheduleSettings }) => {
   const { bookings, loading: bookingsLoading, addBooking, deleteBooking, updateBooking } = useScheduleData();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -16,7 +32,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isFormEditable, setIsFormEditable] = useState(false);
   const [bookingToEdit, setBookingToEdit] = useState(null);
-  const [newBooking, setNewBooking] = useState({
+  const [newBooking, setNewBooking] = useState({ // This state is for the form
     name: '', type: 'Inbound', expectedPallets: '', isOpenBooking: false,
     customer_id: null, supplier_id: null, haulier_id: null,
     repeat: 'none', repeatCount: 1, repeatOnDays: [],
@@ -81,7 +97,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   // --- Form and CRUD Logic ---
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id'].includes(name)) {
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
     } else if (name === 'isOpenBooking') {
       setNewBooking(prev => ({ ...prev, isOpenBooking: e.target.checked }));
@@ -104,6 +120,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
     setNewBooking({
       name: booking.name,
       type: booking.type,
+      status: booking.status,
       expectedPallets: booking.expectedPallets || '',
       customer_id: booking.customer_id,
       supplier_id: booking.supplier_id,
@@ -133,6 +150,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
         customer_id: newBooking.customer_id || null,
         supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
         haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
+        status: newBooking.status || 'Booked',
       };
       updateBooking(bookingToUpdate);
     } else {
@@ -182,11 +200,11 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                   <div 
                     key={booking.id} 
                     onClick={() => handleEditBooking(booking)}
-                    className={`p-3 rounded-lg flex justify-between items-start cursor-pointer ${booking.type === 'Inbound' ? 'bg-green-800/80 hover:bg-green-800' : 'bg-orange-800/80 hover:bg-orange-800'}`}
+                    className={`p-3 rounded-lg flex justify-between items-start cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}
                   >
                     <div className="truncate flex-grow">
-                      <p className="font-bold text-white truncate">{booking.name || 'No Reference'}</p>
-                      <p className="text-sm text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                      <p className="font-bold text-white truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                      <p className="text-sm text-gray-300 truncate">{booking.name || 'No Reference'}</p>
                       {/* Times are hidden for open bookings */}
                     </div>
                     <div className="flex-shrink-0 flex flex-col items-end ml-2">
@@ -221,13 +239,13 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
                     <div
                       onClick={() => handleEditBooking(booking)}
                       key={booking.id}
-                      className={`absolute left-20 right-0 p-2 rounded-lg overflow-hidden cursor-pointer ${booking.type === 'Inbound' ? 'bg-green-900/80 hover:bg-green-900 border-l-2 border-green-500' : 'bg-orange-900/80 hover:bg-orange-900 border-l-2 border-orange-500'}`}
+                      className={`absolute left-20 right-0 p-2 rounded-lg overflow-hidden cursor-pointer ${getStatusClasses(booking.status, booking.type)} border-l-4 ${booking.status === 'Booked' ? (booking.type === 'Inbound' ? 'border-green-500' : 'border-orange-500') : 'border-gray-500'}`}
                       style={{ top: `${top}px`, height: `${height}px` }}
                     >
                       <div className="flex justify-between items-start">
                         <div className="truncate">
-                          <p className="font-bold text-white text-sm truncate">{booking.name || 'No Reference'}</p>
-                          <p className="text-xs text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                          <p className="font-bold text-white text-sm truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                          <p className="text-xs text-gray-300 truncate">{booking.name || 'No Reference'}</p>
                           {!booking.startDateTime.endsWith('T00:00:00') && (
                             <p className="text-xs text-gray-400 mt-1">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           )}
@@ -259,7 +277,10 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
           suppliers={suppliers}
           hauliers={hauliers}
           isEditable={isFormEditable}
-          onSetEditable={() => setIsFormEditable(true)}
+          onSetEditable={(e) => {
+            e.preventDefault();
+            setIsFormEditable(true);
+          }}
         />
       )}
     </div>

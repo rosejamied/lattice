@@ -6,6 +6,22 @@ import BookingForm from './BookingForm.jsx';
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const getStatusClasses = (status, type) => {
+  switch (status) {
+    case 'Arrived':
+      return 'bg-cyan-800/80 border-cyan-600 hover:bg-cyan-800'; // Web: 'bg-cyan-900/70 border-l-2 border-cyan-400 hover:bg-cyan-900'
+    case 'Allocated':
+      return 'bg-yellow-800/80 border-yellow-600 hover:bg-yellow-800'; // Web: 'bg-yellow-900/70 border-l-2 border-yellow-400 hover:bg-yellow-900'
+    case 'Picked':
+      return 'bg-purple-800/80 border-purple-600 hover:bg-purple-800';
+    case 'Completed':
+      return 'bg-gray-700/80 border-gray-500 hover:bg-gray-700 text-gray-400'; // Web: 'bg-gray-800/70 border-l-2 border-gray-600 hover:bg-gray-800'
+    case 'Booked':
+    default:
+      return type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800';
+  }
+};
+
 // Schedule View (Updated Component)
 const ScheduleView = ({ scheduleSettings }) => {
   const { bookings, loading, addBooking, deleteBooking, updateBooking, updateBookings } = useScheduleData();
@@ -51,6 +67,11 @@ const ScheduleView = ({ scheduleSettings }) => {
   }, []);
   // --- Calendar Logic ---
   const getWeekDays = (date) => {
+    // Guard clause to prevent crash on initial render before settings are loaded
+    if (!scheduleSettings || !scheduleSettings.visibleDays) {
+      return [];
+    }
+
     const startOfWeek = new Date(date);
     startOfWeek.setDate(date.getDate() - date.getDay()); // Start from Sunday
     const fullWeek = Array.from({ length: 7 }).map((_, i) => {
@@ -62,10 +83,27 @@ const ScheduleView = ({ scheduleSettings }) => {
   };
 
   const weekDays = getWeekDays(currentDate);
-  const timeSlots = Array.from({ length: scheduleSettings.endHour - scheduleSettings.startHour }).map((_, i) => `${(scheduleSettings.startHour + i).toString().padStart(2, '0')}:00`);
+  // Guard against scheduleSettings being undefined on initial render
+  const timeSlots = (scheduleSettings && scheduleSettings.endHour && scheduleSettings.startHour)
+    ? Array.from({ length: scheduleSettings.endHour - scheduleSettings.startHour }).map((_, i) => 
+        `${(scheduleSettings.startHour + i).toString().padStart(2, '0')}:00`
+      )
+    : [];
 
-  const goToPreviousWeek = () => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)));
-  const goToNextWeek = () => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)));
+  const goToPreviousWeek = () => {
+    setCurrentDate(prevDate => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(newDate.getDate() - 7);
+      return newDate;
+    });
+  };
+  const goToNextWeek = () => {
+    setCurrentDate(prevDate => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(newDate.getDate() + 7);
+      return newDate;
+    });
+  };
   const goToToday = () => setCurrentDate(new Date());
 
   const bookingsBySlot = React.useMemo(() => {
@@ -94,11 +132,34 @@ const ScheduleView = ({ scheduleSettings }) => {
     return map;
   }, [bookings]);
 
+  const followingMondayOpenOutbound = React.useMemo(() => {
+    // Guard clause: If weekdays aren't calculated yet, return a default object to prevent a crash.
+    if (!weekDays || weekDays.length === 0) {
+      return { date: new Date(), bookings: [] };
+    }
+
+    const lastDayOfWeek = weekDays[weekDays.length - 1];
+    const nextMonday = new Date(lastDayOfWeek);
+    
+    // Calculate days to add to get to the next Monday
+    const day = lastDayOfWeek.getDay(); // 0=Sun, 6=Sat
+    const addDays = (7 - day) + 1;
+    nextMonday.setDate(lastDayOfWeek.getDate() + addDays);
+
+    const nextMondayKey = `${nextMonday.getFullYear()}-${nextMonday.getMonth()}-${nextMonday.getDate()}`;
+    const allOpenBookingsForNextMonday = openBookingsByDay[nextMondayKey] || [];
+
+    return {
+      date: nextMonday,
+      bookings: allOpenBookingsForNextMonday.filter(b => b.type === 'Outbound')
+    };
+  }, [weekDays, openBookingsByDay]);
+
   // --- Form and CRUD Logic ---
   const handleFormChange = (e) => {
     const { name, value } = e.target;
 
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id'].includes(name)) {
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
       return;
     }
@@ -194,6 +255,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     setNewBooking({
       name: booking.name,
       type: booking.type,
+      status: booking.status,
       expectedPallets: booking.expectedPallets || '',
       customer_id: booking.customer_id,
       supplier_id: booking.supplier_id,
@@ -213,7 +275,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     const finalStartDateTime = newBooking.isOpenBooking ? `${date}T00:00:00` : `${date}T${startTime}`;
     const finalEndDateTime = newBooking.isOpenBooking ? `${date}T00:00:01` : `${date}T${endTime}`;
 
-    if (!newBooking.name || !finalStartDateTime || !finalEndDateTime || new Date(finalEndDateTime) < new Date(finalStartDateTime)) {
+    if (!finalStartDateTime || !finalEndDateTime || new Date(finalEndDateTime) < new Date(finalStartDateTime)) {
       console.error("Missing required fields.");
       return;
     }
@@ -230,6 +292,7 @@ const ScheduleView = ({ scheduleSettings }) => {
         customer_id: newBooking.customer_id || null,
         supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
         haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
+        status: newBooking.status || 'Booked',
       };
       // Use the new updateBooking function from the hook
       updateBooking(bookingToUpdate);
@@ -256,7 +319,7 @@ const ScheduleView = ({ scheduleSettings }) => {
             seriesId: seriesId,
             name: newBooking.name, type: newBooking.type, status: 'Scheduled',
             expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0,
-            customer_id: newBooking.customer_id || null,
+            customer_id: newBooking.customer_id || null, status: 'Booked',
             supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
             haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
             startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
@@ -277,140 +340,173 @@ const ScheduleView = ({ scheduleSettings }) => {
   };
 
   return (
-    <div className="w-3/4 mx-auto">
-      <div className="p-4 space-y-4 flex flex-col h-full">
-        {/* Header and Navigation */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white flex items-center">
-            <Calendar className="w-6 h-6 mr-3 text-indigo-400" />
-            Weekly Schedule
-          </h1>
-          <div className="flex items-center gap-2">
-            <button onClick={goToPreviousWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronLeft className="w-5 h-5" /></button>
-            <button onClick={goToToday} className="px-3 py-1.5 text-sm bg-gray-700 rounded-md hover:bg-gray-600 transition">Today</button>
-            <button onClick={goToNextWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronRight className="w-5 h-5" /></button>
-            <span className="text-lg font-semibold text-gray-300 w-48 text-center">
-              {weekDays[0].toLocaleString('default', { month: 'long', year: 'numeric' })}
-            </span>
-            <button
-              onClick={openFormForNewOpenBooking}
-              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
+    <div className="flex h-full">
+      {/* Main Schedule Area */}
+      <div className="flex-grow p-4 space-y-4 flex flex-col h-full">
+          {/* Header and Navigation */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-white flex items-center">
+              <Calendar className="w-6 h-6 mr-3 text-indigo-400" />
+              Weekly Schedule
+            </h1>
+            <div className="flex items-center gap-2">
+              <button onClick={goToPreviousWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronLeft className="w-5 h-5" /></button>
+              <button onClick={goToToday} className="px-3 py-1.5 text-sm bg-gray-700 rounded-md hover:bg-gray-600 transition">Today</button>
+              <button onClick={goToNextWeek} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition"><ChevronRight className="w-5 h-5" /></button>
+              <span className="text-lg font-semibold text-gray-300 w-48 text-center">
+                {weekDays.length > 0 && weekDays[0].toLocaleString('default', { month: 'long', year: 'numeric' })}
+              </span>
+              <button
+                onClick={openFormForNewOpenBooking}
+                className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
+              >
+                <Plus className="w-5 h-5 mr-2" /> New Booking
+              </button>
+            </div>
+          </div>
+
+          {/* Calendar Grid */}
+          <div className="flex-grow overflow-auto bg-gray-800 rounded-xl shadow-lg">
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: `repeat(${weekDays.length || 1}, 1fr)` }}
             >
-              <Plus className="w-5 h-5 mr-2" /> New Booking
-            </button>
-          </div>
-        </div>
-
-        {/* Calendar Grid */}
-        <div className="flex-grow overflow-auto bg-gray-800 rounded-xl shadow-lg">
-          <div
-            className="grid"
-            style={{ gridTemplateColumns: `repeat(${weekDays.length || 1}, 1fr)` }}
-          >
-            {/* Header Row */}
-            {weekDays.map(day => (
-              <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 border-b border-l border-gray-700">
-                <div className="text-center p-2">
-                  <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
-                  <p className="text-lg font-bold">{day.getDate()}</p>
+              {/* Header Row (without open bookings) */}
+              {weekDays.map(day => (
+                <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 border-b border-l border-gray-700">
+                  <div className="text-center p-2">
+                    <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
+                    <p className="text-lg font-bold">{day.getDate()}</p>
+                  </div>
                 </div>
-                {/* Open Bookings Area */}
-                <div className="border-t border-gray-700 p-1 space-y-1 min-h-[2rem]">
-                  {(openBookingsByDay[`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`] || []).map(booking => (
-                    <div key={booking.id}
-                      onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
-                      className={`p-1.5 rounded-md text-xs cursor-pointer overflow-hidden text-center ${booking.type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800'}`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div className="truncate">
-                          <p className="font-bold truncate">{booking.name}</p>
-                          <p className="text-gray-300 truncate text-left">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
-                        </div>
-                        {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+              ))}
 
-            {/* Time Slots and Bookings */}
-            {timeSlots.map(time => (
-              <React.Fragment key={time}>
-                {weekDays.map(day => {
-                  const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
-                  const slotBookings = bookingsBySlot[slotKey] || [];
-                  return (
-                    <div
-                      key={`${day.toISOString()}-${time}`}
-                      onClick={() => openFormForSlot(day, parseInt(time))}
-                      className="relative border-b border-l border-gray-700 h-14 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
-                    >
-                      <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
-                      {slotBookings.map((booking, index) => {
-                        const durationHours = (booking.endDate - booking.startDate) / (1000 * 60 * 60);
-                        const height = `calc(${durationHours * 100}% - 4px)`; // 4px for padding
-                        const top = `${(booking.startDate.getMinutes() / 60) * 100}%`;
+              {/* Time Slots and Bookings */}
+              {timeSlots.map(time => (
+                <React.Fragment key={time}>
+                  {weekDays.map(day => {
+                    const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
+                    const slotBookings = bookingsBySlot[slotKey] || [];
+                    return (
+                      <div
+                        key={`${day.toISOString()}-${time}`}
+                        onClick={() => openFormForSlot(day, parseInt(time))}
+                      className="relative border-b border-l border-gray-700 h-10 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      >
+                        <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
+                        {slotBookings.map((booking, index) => {
+                          const durationHours = (booking.endDate - booking.startDate) / (1000 * 60 * 60);
+                          const height = `calc(${durationHours * 100}% - 4px)`; // 4px for padding
+                          const top = `${(booking.startDate.getMinutes() / 60) * 100}%`;
+                          const width = `calc(${100 - index * 10}% - 4px)`;
+                          const left = `${index * 5}%`;
 
-                        // Indent overlapping bookings
-                        const width = `calc(${100 - index * 10}% - 4px)`;
-                        const left = `${index * 5}%`;
-
-                        return (
-                        <div
-                          key={booking.id}
-                          onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
-                          className={`absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/70 border-l-2 border-green-400 hover:bg-green-900' : 'bg-orange-900/70 border-l-2 border-orange-400 hover:bg-orange-900'}`}
-                          style={{ height, top, width, left }}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="truncate">
-                              <p className="font-bold truncate">{booking.name}</p>
-                              <p className="text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
+                          return (
+                          <div
+                            key={booking.id}
+                            onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                            className={`group absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${getStatusClasses(booking.status, booking.type).replace('border-l-2', 'border-l-4')}`}
+                            style={{ height, top, width, left }}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="truncate">
+                                <p className="truncate">
+                                  <span className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  <span className="font-bold ml-2">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                                  {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
+                                </p>
+                              </div>
+                              {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                             </div>
-                            {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }} className="absolute bottom-1 right-1 text-red-400 hover:text-red-200 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash className="w-3 h-3" />
+                            </button>
                           </div>
-                        {!booking.startDateTime.endsWith('T00:00:00') && (
-                          <div className="flex justify-between items-center">
-                            <p className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }}
-                              className="text-red-400 hover:text-red-200 opacity-50 hover:opacity-100"
-                            ><Trash className="w-3 h-3" /></button>
-                          </div>
-                        )}
-                        </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {loading && (
+            <div className="flex justify-center items-center py-10 text-indigo-400">
+              <Loader className="w-8 h-8 animate-spin mr-2" /> Loading Schedule Data...
+            </div>
+          )}
+      </div>
+
+      {/* Modal Form */}
+      {isFormOpen && <BookingForm
+        bookingToEdit={bookingToEdit}
+        newBooking={newBooking}
+        bookingFormData={bookingFormData}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleAddBooking}
+        onChange={handleFormChange}
+        customers={customers}
+        suppliers={suppliers}
+        hauliers={hauliers}
+        isEditable={isFormEditable}
+        onSetEditable={(e) => {
+          e.preventDefault();
+          setIsFormEditable(true);
+        }}
+      />
+      }
+
+      {/* Open Bookings Sidebar */}
+      <div className="w-1/4 flex-shrink-0 bg-gray-800/50 p-4 border-l border-gray-700 overflow-y-auto">
+        <h2 className="text-xl font-bold text-white mb-4">Open Bookings</h2>
+        <div className="space-y-4">
+          {weekDays.map(day => {
+            const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+            const dayOpenBookings = openBookingsByDay[dayKey] || [];
+            return (
+              <div key={dayKey}>
+                <h3 className="font-semibold text-gray-300 border-b border-gray-600 pb-1 mb-2">
+                  {day.toLocaleDateString('default', { weekday: 'long', day: 'numeric' })}
+                </h3>
+                {dayOpenBookings.length > 0 ? (
+                  <div className="space-y-2">
+                    {dayOpenBookings.map(booking => (
+                      <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
+                        <p className="truncate">
+                          <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                          {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">No open bookings.</p>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Following Monday's Open Outbound Bookings */}
+          <div className="border-t-2 border-dashed border-yellow-500/30 pt-4 mt-4">
+            <h3 className="font-semibold text-gray-300 mb-2">
+              {followingMondayOpenOutbound.date.toLocaleDateString('default', { weekday: 'long', day: 'numeric' })}
+            </h3>
+            {followingMondayOpenOutbound.bookings.length > 0 ? (
+              <div className="space-y-2">
+                {followingMondayOpenOutbound.bookings.map(booking => (
+                  <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
+                    <p className="truncate">
+                      <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                      {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (<p className="text-xs text-gray-500">No open outbound bookings for next Monday.</p>)}
           </div>
         </div>
-
-        {/* Modal Form */}
-        {isFormOpen && <BookingForm
-          bookingToEdit={bookingToEdit}
-          newBooking={newBooking}
-          bookingFormData={bookingFormData}
-          onClose={() => setIsFormOpen(false)}
-          onSubmit={handleAddBooking}
-          onChange={handleFormChange}
-          customers={customers}
-          suppliers={suppliers}
-          hauliers={hauliers}
-        isEditable={isFormEditable}
-        onSetEditable={() => setIsFormEditable(true)}
-        />
-        }
-
-        {loading ? (
-          <div className="flex justify-center items-center py-10 text-indigo-400">
-            <Loader className="w-8 h-8 animate-spin mr-2" /> Loading Schedule Data...
-          </div>
-        ) : null}
       </div>
     </div>
   );

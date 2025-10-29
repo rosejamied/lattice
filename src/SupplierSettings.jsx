@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Factory, Plus, Loader, Archive } from 'lucide-react';
+import { Factory, Plus, Loader, Archive, Edit } from 'lucide-react';
 import * as api from './api.jsx';
 import AddSupplierModal from './AddSupplierModal';
+import EditSupplierModal from './EditSupplierModal';
 
 const SupplierSettings = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [supplierToEdit, setSupplierToEdit] = useState(null);
 
   useEffect(() => {
     const fetchSuppliers = async () => {
@@ -36,6 +39,21 @@ const SupplierSettings = () => {
     }
   };
 
+  const handleOpenEditModal = (supplier) => {
+    setSupplierToEdit(supplier);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateSupplier = async (id, supplierData) => {
+    try {
+      await api.updateSupplier(id, supplierData);
+      setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...supplierData } : s));
+    } catch (err) {
+      setError("Failed to update supplier. Please try again.");
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -45,7 +63,7 @@ const SupplierSettings = () => {
             <p className="text-sm text-gray-400">Add, edit, and archive suppliers.</p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsAddModalOpen(true)}
             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
             <Plus size={18} className="mr-2" />
@@ -75,7 +93,9 @@ const SupplierSettings = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${supplier.status === 'Active' ? 'bg-green-900 text-green-300' : 'bg-gray-600 text-gray-300'}`}>{supplier.status}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Date(supplier.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-yellow-400 hover:text-yellow-300 p-1 rounded-full hover:bg-gray-600 transition-colors" title="Archive Supplier (coming soon)"><Archive className="w-5 h-5" /></button>
+                        <button onClick={() => handleOpenEditModal(supplier)} className="text-indigo-400 hover:text-indigo-300 p-1 rounded-full hover:bg-gray-600 transition-colors mr-2" title="Edit Supplier">
+                          <Edit className="w-5 h-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -85,7 +105,8 @@ const SupplierSettings = () => {
           )}
         </div>
       </div>
-      <AddSupplierModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onAddSupplier={handleAddSupplier} />
+      <AddSupplierModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onAddSupplier={handleAddSupplier} />
+      <EditSupplierModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onUpdateSupplier={handleUpdateSupplier} supplier={supplierToEdit} />
     </>
   );
 };

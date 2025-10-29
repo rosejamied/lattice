@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ArrowRightLeft } from 'lucide-react';
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -15,36 +15,50 @@ const BookingForm = ({
   hauliers,
   isEditable,
   onSetEditable
-}) => (
+}) => {
+  const inboundStatuses = ['Booked', 'Arrived', 'Completed'];
+  const outboundStatuses = ['Booked', 'Allocated', 'Picked', 'Completed'];
+  const statusOptions = newBooking.type === 'Inbound' ? inboundStatuses : outboundStatuses;
+
+  return (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-    <form onSubmit={onSubmit} className="bg-gray-800 w-full max-w-2xl p-6 rounded-xl space-y-4 border border-indigo-700 shadow-2xl overflow-y-auto max-h-full">
-      <h3 className="text-xl font-semibold text-white">{bookingToEdit ? 'Update Booking' : 'Schedule a Booking'}</h3>
-      <div className="grid grid-cols-1 gap-4">
-        <div>
-          <label htmlFor="expectedPallets" className="block text-sm font-medium text-gray-300 mb-1">Expected Pallets</label>
+    <form onSubmit={onSubmit} className="bg-gray-800 w-full max-w-2xl p-6 rounded-xl space-y-6 border border-indigo-700 shadow-2xl overflow-y-auto max-h-full">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-semibold text-white">{bookingToEdit ? 'Booking Details' : 'Schedule a Booking'}</h3>
+        {/* Date input moved to the title bar */}
+        <div className="flex-grow flex justify-center px-4">
           <input
-            type="number" id="expectedPallets" name="expectedPallets" value={newBooking.expectedPallets} onChange={onChange}
-            min="0"
-            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-            placeholder="e.g., 10"
-            disabled={!isEditable}
+            type="date" id="date" name="date" value={bookingFormData.date} onChange={onChange}
+            className="p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed" disabled={!isEditable}
+            required
           />
         </div>
+        <div className="flex items-center p-1 bg-gray-900 rounded-lg">
+          <button
+            type="button"
+            onClick={() => isEditable && onChange({ target: { name: 'type', value: 'Inbound' } })}
+            disabled={!isEditable}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${newBooking.type === 'Inbound' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+          >
+            Inbound
+          </button>
+          <button
+            type="button"
+            onClick={() => isEditable && onChange({ target: { name: 'type', value: 'Outbound' } })}
+            disabled={!isEditable}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${newBooking.type === 'Outbound' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+          >
+            Outbound
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-4">
         <div>
           <label htmlFor="customer_id" className="block text-sm font-medium text-gray-300 mb-1">Customer</label>
           <select id="customer_id" name="customer_id" value={newBooking.customer_id || ''} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
             <option value="">-- Select Customer --</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-        </div>
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Booking Reference / Name</label>
-          <input
-            type="text" id="name" name="name" value={newBooking.name} onChange={onChange}
-            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
-            placeholder="e.g., PO-12345, ASN-67890" required
-            disabled={!isEditable}
-          />
         </div>
         {newBooking.type === 'Inbound' && (
           <div>
@@ -64,6 +78,35 @@ const BookingForm = ({
             </select>
           </div>
         )}
+        <div>
+          <label htmlFor="expectedPallets" className="block text-sm font-medium text-gray-300 mb-1">Expected Pallets</label>
+          <input
+            type="number" id="expectedPallets" name="expectedPallets" value={newBooking.expectedPallets} onChange={onChange}
+            min="0"
+            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="e.g., 10"
+            disabled={!isEditable}
+          />
+        </div>
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">Booking Reference / Name</label>
+          <input
+            type="text" id="name" name="name" value={newBooking.name} onChange={onChange}
+            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="e.g., PO-12345, ASN-67890"
+            disabled={!isEditable}
+          />
+        </div>
+        {bookingToEdit && (
+          <div>
+            <label htmlFor="status" className="block text-sm font-medium text-gray-300 mb-1">Status</label>
+            <select id="status" name="status" value={newBooking.status || 'Booked'} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
+              {statusOptions.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       <div className="flex items-center">
         <input
@@ -76,47 +119,31 @@ const BookingForm = ({
         />
         <label htmlFor="isOpenBooking" className="ml-2 text-sm font-medium text-gray-300">Open Booking (All Day)</label>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-300 mb-1">Booking Type</label>
-            <select
-              id="type" name="type" value={newBooking.type} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed" disabled={!isEditable}
-            >
-              <option value="Inbound">Inbound</option>
-              <option value="Outbound">Outbound</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="date" className="block text-sm font-medium text-gray-300 mb-1">Date</label>
-            <input
-              type="date" id="date" name="date" value={bookingFormData.date} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed" disabled={!isEditable}
-              required
-            />
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {!newBooking.isOpenBooking && (
+          <>
+            <div>
+              <label htmlFor="startTime" className={`block text-sm font-medium mb-1 ${!isEditable ? 'text-gray-500' : 'text-gray-300'}`}>Start Time</label>
+              <input
+                type="time" id="startTime" name="startTime" value={bookingFormData.startTime} onChange={onChange}
+                className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${!isEditable ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
+                disabled={!isEditable}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="endTime" className={`block text-sm font-medium mb-1 ${!isEditable ? 'text-gray-500' : 'text-gray-300'}`}>End Time</label>
+              <input
+                type="time" id="endTime" name="endTime" value={bookingFormData.endTime} onChange={onChange}
+                className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${!isEditable ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
+                min={bookingFormData.startTime}
+                disabled={!isEditable}
+                required
+              />
+            </div>
+          </>
+        )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="startTime" className={`block text-sm font-medium mb-1 ${newBooking.isOpenBooking ? 'text-gray-500' : 'text-gray-300'}`}>Start Time</label>
-            <input
-              type="time" id="startTime" name="startTime" value={bookingFormData.startTime} onChange={onChange}
-              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking || !isEditable ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
-              disabled={newBooking.isOpenBooking || !isEditable}
-              required
-            />
-          </div>
-          <div>
-            <label htmlFor="endTime" className={`block text-sm font-medium mb-1 ${newBooking.isOpenBooking ? 'text-gray-500' : 'text-gray-300'}`}>End Time</label>
-            <input
-              type="time" id="endTime" name="endTime" value={bookingFormData.endTime} onChange={onChange}
-              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking || !isEditable ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
-              min={bookingFormData.startTime}
-              disabled={newBooking.isOpenBooking || !isEditable}
-              required
-            />
-          </div>
-        </div>
       {!bookingToEdit && (
         <div className="border-t border-gray-700 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -184,6 +211,7 @@ const BookingForm = ({
       </div>
     </form>
     </div>
-);
+  );
+};
 
 export default BookingForm;
