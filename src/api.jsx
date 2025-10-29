@@ -11,7 +11,11 @@ const API_BASE_URL = '/api';
 const handleRequest = async (request) => {
   try {
     const response = await request;
-    return response.data;
+    // If the status is 204 (No Content), there's no data to return.
+    if (response.status === 204) {
+      return;
+    }
+    return response.data; // For all other successful responses, return the data.
   } catch (error) {
     console.error("API call failed:", error.response ? error.response.data : error.message);
     throw error;
