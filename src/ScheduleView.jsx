@@ -25,6 +25,17 @@ const BookingForm = ({
           />
         </div>
       </div>
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          id="isOpenBooking"
+          name="isOpenBooking"
+          checked={newBooking.isOpenBooking}
+          onChange={onChange}
+          className="h-4 w-4 rounded bg-gray-900 border-gray-600 text-indigo-600 focus:ring-indigo-500"
+        />
+        <label htmlFor="isOpenBooking" className="ml-2 text-sm font-medium text-gray-300">Open Booking (All Day)</label>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-300 mb-1">Booking Type</label>
@@ -47,19 +58,21 @@ const BookingForm = ({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="startTime" className="block text-sm font-medium text-gray-300 mb-1">Start Time</label>
+            <label htmlFor="startTime" className={`block text-sm font-medium mb-1 ${newBooking.isOpenBooking ? 'text-gray-500' : 'text-gray-300'}`}>Start Time</label>
             <input
               type="time" id="startTime" name="startTime" value={bookingFormData.startTime} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
+              disabled={newBooking.isOpenBooking}
               required
             />
           </div>
           <div>
-            <label htmlFor="endTime" className="block text-sm font-medium text-gray-300 mb-1">End Time</label>
+            <label htmlFor="endTime" className={`block text-sm font-medium mb-1 ${newBooking.isOpenBooking ? 'text-gray-500' : 'text-gray-300'}`}>End Time</label>
             <input
               type="time" id="endTime" name="endTime" value={bookingFormData.endTime} onChange={onChange}
-              className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+              className={`w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 ${newBooking.isOpenBooking ? 'disabled:bg-gray-700 disabled:cursor-not-allowed' : ''}`}
               min={bookingFormData.startTime}
+              disabled={newBooking.isOpenBooking}
               required
             />
           </div>
@@ -133,6 +146,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const [newBooking, setNewBooking] = useState({
     name: '',
     type: 'Inbound',
+    isOpenBooking: false,
     // Repeat options
     repeat: 'none',
     repeatCount: 1,
@@ -175,6 +189,19 @@ const ScheduleView = ({ scheduleSettings }) => {
     });
     return map;
   }, [bookings]);
+  
+  const openBookingsByDay = React.useMemo(() => {
+    const map = {};
+    bookings.forEach(booking => {
+      if (booking.startDateTime.endsWith('T00:00:00')) { // Identifier for open bookings
+        const date = new Date(booking.startDateTime);
+        const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+        if (!map[key]) map[key] = [];
+        map[key].push(booking);
+      }
+    });
+    return map;
+  }, [bookings]);
 
   // --- Form and CRUD Logic ---
   const handleFormChange = (e) => {
@@ -182,6 +209,11 @@ const ScheduleView = ({ scheduleSettings }) => {
 
     if (['name', 'type', 'repeat', 'repeatCount'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
+      return;
+    }
+
+    if (name === 'isOpenBooking') {
+      setNewBooking(prev => ({ ...prev, isOpenBooking: e.target.checked }));
       return;
     }
 
@@ -219,9 +251,30 @@ const ScheduleView = ({ scheduleSettings }) => {
     setNewBooking({
       name: '',
       type: 'Inbound',
+      isOpenBooking: false,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [slotDate.getDay()], // Default to the day clicked
+    });
+    setIsFormOpen(true);
+  };
+  
+  const openFormForNewOpenBooking = () => {
+    const today = new Date();
+    setBookingToEdit(null);
+    
+    setBookingFormData({
+      date: today.toISOString().substring(0, 10),
+      startTime: '09:00', // Default disabled time
+      endTime: '17:00',   // Default disabled time
+    });
+    setNewBooking({
+      name: '',
+      type: 'Inbound',
+      isOpenBooking: true, // Default to open booking
+      repeat: 'none',
+      repeatCount: 1,
+      repeatOnDays: [today.getDay()],
     });
     setIsFormOpen(true);
   };
@@ -240,7 +293,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     setNewBooking({
       name: booking.name,
       type: booking.type,
-      repeat: 'none', // Editing recurring series is not supported yet
+      isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
     });
@@ -250,8 +303,9 @@ const ScheduleView = ({ scheduleSettings }) => {
   const handleAddBooking = async (e) => {
     e.preventDefault();
     const { date, startTime, endTime } = bookingFormData;
-    const finalStartDateTime = `${date}T${startTime}`;
-    const finalEndDateTime = `${date}T${endTime}`;
+    // For open bookings, we use a specific time format as an identifier
+    const finalStartDateTime = newBooking.isOpenBooking ? `${date}T00:00:00` : `${date}T${startTime}`;
+    const finalEndDateTime = newBooking.isOpenBooking ? `${date}T00:00:01` : `${date}T${endTime}`;
 
     if (!newBooking.name || !finalStartDateTime || !finalEndDateTime || new Date(finalEndDateTime) < new Date(finalStartDateTime)) {
       console.error("Missing required fields.");
@@ -326,7 +380,7 @@ const ScheduleView = ({ scheduleSettings }) => {
             {weekDays[0].toLocaleString('default', { month: 'long', year: 'numeric' })}
           </span>
           <button
-            onClick={() => openFormForSlot(new Date(), new Date().getHours())}
+            onClick={openFormForNewOpenBooking}
             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50"
           >
             <Plus className="w-5 h-5 mr-2" /> New Booking
@@ -342,9 +396,22 @@ const ScheduleView = ({ scheduleSettings }) => {
         >
           {/* Header Row */}
           {weekDays.map(day => (
-            <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 text-center border-b border-l border-gray-700 p-2">
-              <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
-              <p className="text-lg font-bold">{day.getDate()}</p>
+            <div key={day.toISOString()} className="sticky top-0 bg-gray-800 z-10 border-b border-l border-gray-700">
+              <div className="text-center p-2">
+                <p className="text-xs text-gray-400">{day.toLocaleDateString('default', { weekday: 'short' }).toUpperCase()}</p>
+                <p className="text-lg font-bold">{day.getDate()}</p>
+              </div>
+              {/* Open Bookings Area */}
+              <div className="border-t border-gray-700 p-1 space-y-1 min-h-[2rem]">
+                {(openBookingsByDay[`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`] || []).map(booking => (
+                  <div key={booking.id}
+                    onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                    className={`p-1.5 rounded-md text-xs cursor-pointer overflow-hidden text-center ${booking.type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800'}`}
+                  >
+                    <p className="font-bold truncate">{booking.name}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
 
