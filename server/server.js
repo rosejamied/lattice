@@ -26,7 +26,7 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
 
 // Create bookings table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS bookings (
-  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT
+  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER
 )`);
 
 // Create inventory table if it doesn't exist
@@ -69,9 +69,9 @@ app.post('/api/bookings', (req, res) => {
     return res.status(400).json({ message: 'Request body must be an array of bookings.' });
   }
 
-  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+  const stmt = db.prepare("INSERT INTO bookings (id, seriesId, name, type, startDateTime, endDateTime, status, expectedPallets) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
   newBookings.forEach(booking => {
-    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status);
+    stmt.run(booking.id, booking.seriesId, booking.name, booking.type, booking.startDateTime, booking.endDateTime, booking.status, booking.expectedPallets);
   });
   stmt.finalize((err) => {
     if (err) {
@@ -84,11 +84,11 @@ app.post('/api/bookings', (req, res) => {
 // PUT (update) a booking by ID
 app.put('/api/bookings/:id', (req, res) => {
   const { id } = req.params;
-  const { name, type, startDateTime, endDateTime } = req.body;
+  const { name, type, startDateTime, endDateTime, expectedPallets } = req.body;
 
-  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ? WHERE id = ?`;
+  const sql = `UPDATE bookings SET name = ?, type = ?, startDateTime = ?, endDateTime = ?, expectedPallets = ? WHERE id = ?`;
 
-  db.run(sql, [name, type, startDateTime, endDateTime, id], function(err) {
+  db.run(sql, [name, type, startDateTime, endDateTime, expectedPallets, id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

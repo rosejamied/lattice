@@ -24,6 +24,15 @@ const BookingForm = ({
             placeholder="e.g., Q4 Shipment, Vendor A Pickup" required
           />
         </div>
+        <div>
+          <label htmlFor="expectedPallets" className="block text-sm font-medium text-gray-300 mb-1">Expected Pallets</label>
+          <input
+            type="number" id="expectedPallets" name="expectedPallets" value={newBooking.expectedPallets} onChange={onChange}
+            min="0"
+            className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="e.g., 10"
+          />
+        </div>
       </div>
       <div className="flex items-center">
         <input
@@ -146,6 +155,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const [newBooking, setNewBooking] = useState({
     name: '',
     type: 'Inbound',
+    expectedPallets: '',
     isOpenBooking: false,
     // Repeat options
     repeat: 'none',
@@ -207,7 +217,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
 
-    if (['name', 'type', 'repeat', 'repeatCount'].includes(name)) {
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
       return;
     }
@@ -251,6 +261,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     setNewBooking({
       name: '',
       type: 'Inbound',
+      expectedPallets: '',
       isOpenBooking: false,
       repeat: 'none',
       repeatCount: 1,
@@ -271,6 +282,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     setNewBooking({
       name: '',
       type: 'Inbound',
+      expectedPallets: '',
       isOpenBooking: true, // Default to open booking
       repeat: 'none',
       repeatCount: 1,
@@ -293,6 +305,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     setNewBooking({
       name: booking.name,
       type: booking.type,
+      expectedPallets: booking.expectedPallets || '',
       isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
@@ -316,7 +329,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       // Update existing booking
       const updatedBookings = bookings.map(b =>
         b.id === bookingToEdit.id
-          ? { ...b, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime }
+          ? { ...b, name: newBooking.name, type: newBooking.type, startDateTime: finalStartDateTime, endDateTime: finalEndDateTime, expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0 }
           : b
       );
       updateBookings(updatedBookings);
@@ -347,8 +360,9 @@ const ScheduleView = ({ scheduleSettings }) => {
             id: `${seriesId}-${week}-${dayIndex}`, // Unique ID for each instance
             seriesId: seriesId,
             name: newBooking.name, type: newBooking.type, status: 'Scheduled',
-            startDateTime: `${entryDateStr}T${startTime}`,
-            endDateTime: `${entryDateStr}T${endTime}`,
+            expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0,
+            startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
+            endDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:01` : `${entryDateStr}T${endTime}`,
           });
         }
       }
@@ -408,7 +422,10 @@ const ScheduleView = ({ scheduleSettings }) => {
                     onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
                     className={`p-1.5 rounded-md text-xs cursor-pointer overflow-hidden text-center ${booking.type === 'Inbound' ? 'bg-green-800/80 border-green-600 hover:bg-green-800' : 'bg-orange-800/80 border-orange-600 hover:bg-orange-800'}`}
                   >
-                    <p className="font-bold truncate">{booking.name}</p>
+                    <div className="flex justify-between items-center">
+                      <p className="font-bold truncate">{booking.name}</p>
+                      {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -444,7 +461,10 @@ const ScheduleView = ({ scheduleSettings }) => {
                         className={`absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/70 border-l-2 border-green-400 hover:bg-green-900' : 'bg-orange-900/70 border-l-2 border-orange-400 hover:bg-orange-900'}`}
                         style={{ height, top, width, left }}
                       >
-                        <p className="font-bold truncate">{booking.name}</p>
+                        <div className="flex justify-between items-center">
+                          <p className="font-bold truncate">{booking.name}</p>
+                          {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
+                        </div>
                         <div className="flex justify-between items-center">
                           <p className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           <button
