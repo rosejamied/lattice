@@ -71,7 +71,9 @@ export const useScheduleData = () => {
         startDateTime: updatedBooking.startDateTime,
         endDateTime: updatedBooking.endDateTime,
         expectedPallets: updatedBooking.expectedPallets,
-        customer_id: updatedBooking.customer_id, // Add customer_id to the update payload
+        customer_id: updatedBooking.customer_id,
+        supplier_id: updatedBooking.supplier_id,
+        haulier_id: updatedBooking.haulier_id,
       });
     } catch (error) {
       console.error("Failed to update booking on server:", error);

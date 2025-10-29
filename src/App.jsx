@@ -13,7 +13,24 @@ import InventoryList from './InventoryList';
 import InventoryForm from './InventoryForm';
 import ScheduleView from './ScheduleView';
 import SettingsPage from './SettingsPage'; // Added Settings Page
-import Card from './Card';
+
+// --- Mobile Components ---
+import MLoginPage from './mLoginPage';
+import MMenu from './mMenu';
+import MSchedule from './mSchedule';
+import MOrders from './mOrders';
+import MStock from './mStock';
+
+// --- Custom Hooks ---
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return isMobile;
+};
 
 // --- Main Application Component ---
 const App = () => {
@@ -23,7 +40,8 @@ const App = () => {
 
   // --- Page State ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentPage, setCurrentPage] = useState('dashboard'); // 'dashboard', 'inventory', 'form', 'schedule'
+  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [mobilePage, setMobilePage] = useState('menu'); // 'menu', 'schedule', 'orders', 'stock'
   const [itemToEdit, setItemToEdit] = useState(null);
   const [scheduleSettings, setScheduleSettings] = useState({
     // Default to Monday-Friday visible
@@ -32,6 +50,9 @@ const App = () => {
     startHour: 8, // 8 AM
     endHour: 18,  // 6 PM
   });
+
+  // --- Responsive Hook ---
+  const isMobile = useIsMobile();
 
   // --- Effects ---
   // Check for existing session on initial load
@@ -86,6 +107,11 @@ const App = () => {
     setItemToEdit(item);
     setCurrentPage(page);
   };
+
+  const mobileNavigate = (page) => {
+    setMobilePage(page);
+  };
+
 
   // CRUD Operations
   const handleSaveItem = useCallback((itemData) => {
@@ -173,6 +199,27 @@ const App = () => {
         return <Dashboard inventory={inventory} />;
     }
   };
+
+  // --- Mobile View Rendering ---
+  if (isMobile) {
+    if (!user) {
+      return <MLoginPage onLogin={handleLogin} error={authError} loading={authLoading} />;
+    }
+
+    switch (mobilePage) {
+      case 'schedule':
+        return <MSchedule navigateBack={() => mobileNavigate('menu')} scheduleSettings={scheduleSettings} />;
+      case 'orders':
+        return <MOrders navigateBack={() => mobileNavigate('menu')} />;
+      case 'stock':
+        return <MStock navigateBack={() => mobileNavigate('menu')} />;
+      case 'menu':
+      default:
+        return <MMenu user={user} onLogout={handleLogout} navigate={mobileNavigate} />;
+    }
+  }
+
+  // --- Desktop View Rendering ---
 
   // If not logged in, show the login page.
   if (!user) {
