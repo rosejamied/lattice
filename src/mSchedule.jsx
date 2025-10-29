@@ -54,6 +54,9 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
     return `${hour.toString().padStart(2, '0')}:00`;
   });
 
+  // Define the height of one hour slot in pixels for calculation
+  const HOUR_HEIGHT_PX = 60;
+
   const isLoading = bookingsLoading || customersLoading;
 
   return (
@@ -95,21 +98,29 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
             {/* Timed Bookings */}
             <div className="border-t border-gray-700 pt-4">
               <h3 className="text-lg font-semibold text-gray-300 mb-2">Timed Bookings</h3>
-              <div className="space-y-4">
-                {timeSlots.map(time => {
-                  const slotBookings = timedBookings.filter(b => b.startDate.getHours() === parseInt(time));
+              <div className="relative">
+                {/* Background Time Slots */}
+                {timeSlots.map((time, index) => (
+                  <div key={time} className="flex items-start" style={{ height: `${HOUR_HEIGHT_PX}px` }}>
+                    <div className="w-16 text-sm text-gray-500 pt-[-4px]">{time}</div>
+                    <div className="flex-grow border-t border-gray-700"></div>
+                  </div>
+                ))}
+
+                {/* Absolutely Positioned Bookings */}
+                {timedBookings.map(booking => {
+                  const top = ((booking.startDate.getHours() - scheduleSettings.startHour) * HOUR_HEIGHT_PX) + (booking.startDate.getMinutes() / 60 * HOUR_HEIGHT_PX);
+                  const durationMinutes = (booking.endDate - booking.startDate) / (1000 * 60);
+                  const height = (durationMinutes / 60 * HOUR_HEIGHT_PX) - 2; // -2 for a small gap
+
                   return (
-                    <div key={time} className="flex">
-                      <div className="w-16 text-sm text-gray-500 pt-2">{time}</div>
-                      <div className="flex-grow border-l border-gray-700 pl-4 space-y-2">
-                        {slotBookings.length > 0 ? slotBookings.map(booking => (
-                          <div key={booking.id} className={`p-3 rounded-lg ${booking.type === 'Inbound' ? 'bg-green-900/70' : 'bg-orange-900/70'}`}>
-                            <p className="font-bold text-white">{booking.name}</p>
-                            <p className="text-sm text-gray-300">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
-                            <p className="text-xs text-gray-400 mt-1">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                          </div>
-                        )) : <div className="h-8"></div>}
-                      </div>
+                    <div
+                      key={booking.id}
+                      className={`absolute left-20 right-0 p-2 rounded-lg overflow-hidden ${booking.type === 'Inbound' ? 'bg-green-900/80 border-l-2 border-green-500' : 'bg-orange-900/80 border-l-2 border-orange-500'}`}
+                      style={{ top: `${top}px`, height: `${height}px` }}
+                    >
+                      <p className="font-bold text-white text-sm truncate">{booking.name}</p>
+                      <p className="text-xs text-gray-300 truncate">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</p>
                     </div>
                   );
                 })}
