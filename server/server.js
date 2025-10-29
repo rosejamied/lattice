@@ -190,21 +190,21 @@ app.put('/api/inventory/:id', (req, res) => {
   });
 });
 
-// DELETE an inventory item by ID
-app.delete('/api/inventory/:id', (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM inventory WHERE id = ?`, id, function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(this.changes > 0 ? 204 : 404).send();
-  });
-});
-
 // DELETE all inventory items
 app.delete('/api/inventory/all', (req, res) => {
   db.run(`DELETE FROM inventory`, [], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     console.log(`All inventory data cleared. ${this.changes} rows affected.`);
     res.status(204).send(); // 204 No Content
+  });
+});
+
+// DELETE an inventory item by ID
+app.delete('/api/inventory/:id', (req, res) => {
+  const { id } = req.params;
+  db.run(`DELETE FROM inventory WHERE id = ?`, id, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(this.changes > 0 ? 204 : 404).send();
   });
 });
 

@@ -30,7 +30,7 @@ const Sidebar = ({ isOpen, toggle, currentPage, navigate, onLogout, user }) => {
   };
 
   return (
-    <aside className={`hidden md:flex flex-col bg-gray-800 text-white border-r border-gray-700 shadow-lg transition-all duration-300 ease-in-out ${isOpen ? 'w-64 p-4' : 'w-20 p-4'}`}>
+    <aside className={`flex flex-col bg-gray-800 text-white border-r border-gray-700 shadow-lg transition-all duration-300 ease-in-out ${isOpen ? 'w-64 p-4' : 'w-20 p-4'}`}>
       <div className={`flex items-center mb-8 ${isOpen ? 'justify-between' : 'justify-center'}`}>
         <h1 className={`text-2xl font-bold text-white tracking-wider transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>Lattice</h1>
         <button onClick={toggle} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white">
