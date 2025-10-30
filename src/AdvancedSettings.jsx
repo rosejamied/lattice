@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Upload, Trash2, AlertTriangle, Loader, Calendar, KeyRound } from 'lucide-react';
 import * as api from './api.jsx'; // This is already correct
 import { usePermissions } from './usePermissions.jsx';
-import ImportMappingModal from './ImportMappingModal.jsx';
-import Papa from 'papaparse';
+import ImportMappingModal from './ImportMappingModal';
+import * as XLSX from 'xlsx'; // Import the new library
 
 const DangerButton = ({ onClick, children }) => (
   <button
@@ -59,6 +59,15 @@ const AdvancedSettings = ({ user, onOpenScheduleSettings, onOpenRolesSettings })
           console.error(`Failed to clear ${dataType}:`, error);
           alert(`An error occurred while clearing ${dataType}: ${error.message}`);
         }
+      } else if (dataType === 'orders') {
+        try {
+          await api.clearOrders();
+          alert('All order data has been successfully cleared.');
+          window.location.reload();
+        } catch (error) {
+          console.error(`Failed to clear ${dataType}:`, error);
+          alert(`An error occurred while clearing ${dataType}: ${error.message}`);
+        }
       } else {
         alert(`${dataType} data clearing is not yet implemented.`);
       }
@@ -71,53 +80,69 @@ const AdvancedSettings = ({ user, onOpenScheduleSettings, onOpenRolesSettings })
 
     setCsvFile(file);
 
-    // Use FileReader to read the first line of the CSV for headers
+    // Use FileReader and xlsx library to read the spreadsheet headers
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const firstLine = text.split('\n')[0].trim();
-      const headers = firstLine.split(',');
-      setCsvHeaders(headers);
+    reader.onload = (event) => {
+      const data = event.target.result;
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      // 'header: 1' reads the first row into an array of strings
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      if (jsonData.length > 0) {
+        setCsvHeaders(jsonData[0]); // The first row is the headers
+      }
     };
-    reader.readAsText(file);
+    // Read the file as an ArrayBuffer, which is suitable for binary spreadsheet files
+    reader.readAsArrayBuffer(file);
   };
 
   const handleConfirmImport = async (mappings) => {
     if (!csvFile) return;
     setIsImporting(true);
 
-    Papa.parse(csvFile, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        const now = new Date().toISOString();
-        const newItems = results.data.map(row => ({
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9), // More unique ID
-          name: row[mappings.name] || 'N/A',
-          sku: row[mappings.sku] || 'N/A',
-          quantity: parseInt(row[mappings.quantity], 10) || 0,
-          location: row[mappings.location] || 'N/A',
-          createdAt: now,
-          updatedAt: now,
-        }));
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = event.target.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        // Convert sheet to JSON. This creates an array of objects.
+        const results = XLSX.utils.sheet_to_json(worksheet);
 
-        try {
-          await api.bulkAddInventory(newItems);
-          alert(`${newItems.length} items imported successfully! The page will now reload.`);
-          window.location.reload();
-        } catch (error) {
-          console.error("Failed to import data:", error);
-          alert(`Import failed: ${error.message}`);
-        } finally {
-          setIsImporting(false);
-        }
-      },
-      error: (error) => {
-        console.error("CSV parsing error:", error);
-        alert(`Failed to parse CSV file: ${error.message}`);
+        const now = new Date().toISOString(); // Get the current timestamp once
+        const newItems = results.map(row => {
+          const newItem = {
+            id: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Create a robust unique ID
+            stockNumber: row[mappings.stockNumber] || 'N/A',
+            inboundOrderNumber: row[mappings.inboundOrderNumber] || null,
+            description: row[mappings.description] || 'N/A',
+            quantity: parseInt(row[mappings.quantity], 10) || 0,
+            location: row[mappings.location] || 'N/A',
+            status: row[mappings.status] || 'In Stock',
+            inboundDate: row[mappings.inboundDate] ? new Date(row[mappings.inboundDate]).toISOString() : now,
+            inboundReference: row[mappings.inboundReference] || 'N/A',
+            storageCostPerWeek: parseFloat(row[mappings.storageCostPerWeek]) || 0,
+            rhdIn: parseFloat(row[mappings.rhdIn]) || 0,
+            rhdOut: parseFloat(row[mappings.rhdOut]) || 0,
+            createdAt: now,
+            updatedAt: now,
+          };
+          return newItem;
+        });
+
+        await api.bulkAddInventory(newItems);
+        alert(`${newItems.length} items imported successfully! The page will now reload.`);
+        window.location.reload();
+      } catch (error) {
+        console.error("Failed to import data:", error);
+        alert(`Import failed: ${error.message}`);
+      } finally {
         setIsImporting(false);
       }
-    });
+    };
+    reader.readAsArrayBuffer(csvFile);
   };
 
   return (
@@ -155,7 +180,7 @@ const AdvancedSettings = ({ user, onOpenScheduleSettings, onOpenRolesSettings })
             <div className="flex items-center">
               <input
                 type="file"
-                accept=".csv"
+                accept=".csv, .xls, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                 onChange={handleFileChange}
                 className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-600 file:text-white hover:file:bg-gray-500"
               />
@@ -194,6 +219,10 @@ const AdvancedSettings = ({ user, onOpenScheduleSettings, onOpenRolesSettings })
               <div className="flex justify-between items-center">
                 <p className="text-gray-300">Clear all haulier data.</p>
                 <DangerButton onClick={() => handleClearData('hauliers')}><Trash2 size={16} className="mr-2" />Clear Hauliers</DangerButton>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Clear all order data.</p>
+                <DangerButton onClick={() => handleClearData('orders')}><Trash2 size={16} className="mr-2" />Clear Orders</DangerButton>
               </div>
             </div>
           </div>

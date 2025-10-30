@@ -27,7 +27,41 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
 // --- Database Schema Migrations ---
 // This is a simple way to handle schema changes without dropping the table.
 db.serialize(() => {
-  // Add columns to the 'bookings' table if they don't exist
+  // --- CREATE TABLES ---
+  // Create tables without foreign keys first, or where they are not strictly dependent.
+  db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+  db.run(`CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT UNIQUE, firstName TEXT, lastName TEXT, role TEXT, jobTitle TEXT, passwordHash TEXT, createdAt TEXT)`);
+  db.run(`CREATE TABLE IF NOT EXISTS customers (id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT)`);
+  db.run(`CREATE TABLE IF NOT EXISTS suppliers (id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT)`);
+  db.run(`CREATE TABLE IF NOT EXISTS hauliers (id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT)`);
+
+  // Create tables with foreign key dependencies.
+  db.run(`CREATE TABLE IF NOT EXISTS bookings (
+    id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT, supplier_id TEXT, haulier_id TEXT, contract_id TEXT
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS inventory (
+    id TEXT PRIMARY KEY, name TEXT, sku TEXT, quantity INTEGER, location TEXT, createdAt TEXT, updatedAt TEXT, customer_id TEXT, FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS contracts (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, customer_id TEXT NOT NULL, status TEXT, createdAt TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+  )`, (err) => { if (err) { console.error("Error creating contracts table:", err.message); }});
+
+  db.run(`CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY, orderNumber TEXT UNIQUE NOT NULL, customer_id TEXT NOT NULL, status TEXT NOT NULL, createdAt TEXT, updatedAt TEXT,
+    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+  )`, (err) => { if (err) { console.error("Error creating orders table:", err.message); }});
+
+  db.run(`CREATE TABLE IF NOT EXISTS order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL, inventory_id TEXT NOT NULL, quantity INTEGER NOT NULL, price_at_time REAL, FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE, FOREIGN KEY (inventory_id) REFERENCES inventory(id) ON DELETE SET NULL
+  )`, (err) => { if (err) { console.error("Error creating order_items table:", err.message); }});
+
+  // --- ALTER TABLES (Add columns if they don't exist) ---
+  // This section is for adding new columns to existing tables in a non-destructive way.
+
+  // Add columns to the 'bookings' table
   db.run(`ALTER TABLE bookings ADD COLUMN expectedPallets INTEGER`, (err) => {
     if (err && err.message.includes('duplicate column name')) { /* Ignore error if column already exists */ } 
     else if (err) { console.error('Error adding "expectedPallets" to "bookings":', err.message); }
@@ -37,13 +71,6 @@ db.serialize(() => {
     if (err && err.message.includes('duplicate column name')) { /* Ignore error if column already exists */ }
     else if (err) { console.error('Error adding "customer_id" to "bookings":', err.message); }
     else { console.log('Column "customer_id" added to "bookings" table.'); }
-  });
-
-  // Add column to the 'inventory' table if it doesn't exist
-  db.run(`ALTER TABLE inventory ADD COLUMN customer_id TEXT`, (err) => {
-    if (err && err.message.includes('duplicate column name')) { /* Ignore error if column already exists */ }
-    else if (err) { console.error('Error adding "customer_id" to "inventory":', err.message); }
-    else { console.log('Column "customer_id" added to "inventory" table.'); }
   });
 
   // Add new columns to the 'bookings' table for suppliers and hauliers
@@ -70,56 +97,14 @@ db.serialize(() => {
     customer_id TEXT NOT NULL, haulier_id TEXT NOT NULL, PRIMARY KEY (customer_id, haulier_id),
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
     FOREIGN KEY (haulier_id) REFERENCES hauliers(id) ON DELETE CASCADE
-  )`, (err) => { if (err) { console.error("Error creating customer_suppliers table:", err.message); }});
+  )`, (err) => { if (err) { console.error("Error creating customer_hauliers table:", err.message); }});
 
   // Add contract_id to bookings table
   db.run(`ALTER TABLE bookings ADD COLUMN contract_id TEXT`, (err) => {
     if (err && err.message.includes('duplicate column name')) { /* Ignore */ }
     else if (err) { console.error('Error adding "contract_id" to "bookings":', err.message); }
   });
-
-  // Add contracts table
-  db.run(`CREATE TABLE IF NOT EXISTS contracts (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, customer_id TEXT NOT NULL, status TEXT, createdAt TEXT,
-    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
-  )`, (err) => { if (err) { console.error("Error creating contracts table:", err.message); }});
 });
-
-// Create bookings table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS bookings (
-  id TEXT PRIMARY KEY, seriesId TEXT, name TEXT, type TEXT, startDateTime TEXT, endDateTime TEXT, status TEXT, expectedPallets INTEGER, customer_id TEXT, supplier_id TEXT, haulier_id TEXT, contract_id TEXT
-)`);
-
-// Create inventory table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS inventory (
-  id TEXT PRIMARY KEY, name TEXT, sku TEXT, quantity INTEGER, location TEXT, createdAt TEXT, updatedAt TEXT, customer_id TEXT
-)`);
-
-// Create settings table if it doesn't exist (using a simple key-value structure)
-db.run(`CREATE TABLE IF NOT EXISTS settings (
-  key TEXT PRIMARY KEY,
-  value TEXT
-)`);
-
-// Create customers table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS customers (
-  id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
-)`);
-
-// Create suppliers table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS suppliers (
-  id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
-)`);
-
-// Create hauliers table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS hauliers (
-  id TEXT PRIMARY KEY, name TEXT UNIQUE, status TEXT, createdAt TEXT
-)`);
-
-// Create users table if it doesn't exist
-db.run(`CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, username TEXT UNIQUE, firstName TEXT, lastName TEXT, role TEXT, jobTitle TEXT, passwordHash TEXT, createdAt TEXT
-)`);
 
 // --- Routes ---
 // A simple test route to make sure the server is running
@@ -315,10 +300,10 @@ app.get('/api/users', (req, res) => {
 
 // POST a new user
 app.post('/api/users', (req, res) => {
-  const { username, firstName, lastName, role, password } = req.body;
+  const { username, firstName, lastName, role, jobTitle, password } = req.body;
 
   // Basic validation
-  if (!username || !firstName || !lastName || !role || !password) {
+  if (!username || !firstName || !lastName || !role || !jobTitle || !password) {
     return res.status(400).json({ message: "Missing required fields." });
   }
 
@@ -328,8 +313,8 @@ app.post('/api/users', (req, res) => {
   const passwordHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
   const storedPassword = `${salt}:${passwordHash}`; // Store salt with hash
 
-  const sql = `INSERT INTO users (id, username, firstName, lastName, role, passwordHash, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [newUserId, username, firstName, lastName, role, storedPassword, new Date().toISOString()], function(err) {
+  const sql = `INSERT INTO users (id, username, firstName, lastName, role, jobTitle, passwordHash, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+  db.run(sql, [newUserId, username, firstName, lastName, role, jobTitle, storedPassword, new Date().toISOString()], function(err) {
     if (err) {
       // Handle unique constraint violation for username
       if (err.message.includes('UNIQUE constraint failed: users.username')) {
@@ -337,7 +322,7 @@ app.post('/api/users', (req, res) => {
       }
       return res.status(500).json({ error: err.message });
     }
-    res.status(201).json({ id: newUserId, username, firstName, lastName, role, createdAt: new Date().toISOString() });
+    res.status(201).json({ id: newUserId, username, firstName, lastName, role, jobTitle, createdAt: new Date().toISOString() });
   });
 });
 
@@ -619,6 +604,81 @@ app.get('/api/roles', (req, res) => {
   // This can be moved to a database table later if needed.
   const roles = ['Admin', 'Manager', 'User', 'Viewer'];
   res.status(200).json(roles);
+});
+
+// --- Order Routes ---
+
+// GET all orders
+app.get('/api/orders', (req, res) => {
+  const sql = `
+    SELECT o.*, c.name as customerName 
+    FROM orders o
+    LEFT JOIN customers c ON o.customer_id = c.id
+    ORDER BY o.createdAt DESC
+  `;
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(200).json(rows);
+  });
+});
+
+// POST a new order
+app.post('/api/orders', (req, res) => {
+  const { orderNumber, customer_id, status } = req.body;
+  if (!orderNumber || !customer_id || !status) {
+    return res.status(400).json({ message: "orderNumber, customer_id, and status are required." });
+  }
+  const newOrder = {
+    id: `ord_${Date.now()}`,
+    orderNumber,
+    customer_id,
+    status,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const sql = `INSERT INTO orders (id, orderNumber, customer_id, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)`;
+  db.run(sql, [newOrder.id, newOrder.orderNumber, newOrder.customer_id, newOrder.status, newOrder.createdAt, newOrder.updatedAt], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    // Fetch the newly created order with customer name to return to client
+    db.get(`SELECT o.*, c.name as customerName FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.id = ?`, [newOrder.id], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json(row);
+    });
+  });
+});
+
+// PUT (update) an order
+app.put('/api/orders/:id', (req, res) => {
+  const { id } = req.params;
+  const { orderNumber, customer_id, status } = req.body;
+  const updatedAt = new Date().toISOString();
+  const sql = `UPDATE orders SET orderNumber = ?, customer_id = ?, status = ?, updatedAt = ? WHERE id = ?`;
+  db.run(sql, [orderNumber, customer_id, status, updatedAt, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(this.changes > 0 ? 200 : 404).json({ message: "Order updated" });
+  });
+});
+
+// DELETE an order
+app.delete('/api/orders/:id', (req, res) => {
+  const { id } = req.params;
+  // The ON DELETE CASCADE on the order_items table will handle deleting line items automatically.
+  db.run(`DELETE FROM orders WHERE id = ?`, id, function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.status(this.changes > 0 ? 204 : 404).send();
+  });
+});
+
+// DELETE all orders
+app.delete('/api/orders/all', (req, res) => {
+  // The ON DELETE CASCADE on the order_items table will handle deleting line items automatically.
+  db.run(`DELETE FROM orders`, [], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    console.log(`All order data cleared. ${this.changes} rows affected.`);
+    res.status(204).send();
+  });
 });
 
 // --- Auth Routes ---

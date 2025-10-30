@@ -1,17 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, List, Loader, Edit, Trash } from 'lucide-react';
 
-// Inventory List View
-const InventoryList = ({ inventory, onEdit, onDelete, loading, error }) => {
+const InventoryList = ({ inventory, onEdit, onAddNew, onDelete, loading, error }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredInventory = useMemo(() => {
     if (!searchTerm) return inventory;
     const term = searchTerm.toLowerCase();
-    return inventory.filter(item =>
-      item.name.toLowerCase().includes(term) ||
-      item.sku.toLowerCase().includes(term) ||
-      item.location.toLowerCase().includes(term)
+    return inventory.filter(item => 
+      (item.stockNumber && item.stockNumber.toLowerCase().includes(term)) ||
+      (item.inboundOrderNumber && item.inboundOrderNumber.toLowerCase().includes(term)) ||
+      (item.description && item.description.toLowerCase().includes(term))
     );
   }, [inventory, searchTerm]);
 
@@ -32,13 +31,13 @@ const InventoryList = ({ inventory, onEdit, onDelete, loading, error }) => {
       <div className="flex flex-col sm:flex-row gap-4">
         <input
           type="text"
-          placeholder="Search by pallet name, SKU, or location..."
+          placeholder="Search by Stock #, Order #, or Description..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-grow p-3 rounded-xl bg-gray-800 text-gray-100 border border-gray-700 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
         />
         <button
-          onClick={() => onEdit(null)} // Calling onEdit with null opens the form for a new item
+          onClick={onAddNew}
           className="flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-colors font-medium shadow-md shadow-indigo-500/50 whitespace-nowrap"
         >
           <Plus className="w-5 h-5 mr-2" /> Add Pallet
@@ -58,7 +57,7 @@ const InventoryList = ({ inventory, onEdit, onDelete, loading, error }) => {
         <table className="min-w-full divide-y divide-gray-700">
           <thead className="bg-gray-700/50">
             <tr>
-              {['Pallet Name/Contents', 'SKU', 'Quantity (Pallets)', 'Location', 'Status', 'Actions'].map(header => (
+              {['Stock Number', 'Order Number', 'Description', 'Qty', 'Stock Location', 'Status', 'Inbound Date', 'Reference Number', 'Actions'].map(header => (
                 <th key={header} className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                   {header}
                 </th>
@@ -66,13 +65,16 @@ const InventoryList = ({ inventory, onEdit, onDelete, loading, error }) => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
-            {filteredInventory.map((item) => (
+            {Array.isArray(filteredInventory) && filteredInventory.map((item) => (
               <tr key={item.id} className="hover:bg-gray-700 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{item.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{item.sku}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{item.stockNumber}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{item.inboundOrderNumber}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{item.description}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-bold">{item.quantity}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{item.location}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">{getStatusBadge(item.quantity)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">{item.status}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{item.inboundDate ? new Date(item.inboundDate).toLocaleDateString() : 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{item.inboundReference}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button
                     onClick={() => onEdit(item)}
@@ -91,9 +93,9 @@ const InventoryList = ({ inventory, onEdit, onDelete, loading, error }) => {
                 </td>
               </tr>
             ))}
-            {filteredInventory.length === 0 && !loading && (
+            {(!Array.isArray(filteredInventory) || filteredInventory.length === 0) && !loading && (
               <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-gray-400">
+                <td colSpan="9" className="px-6 py-4 text-center text-gray-400">
                   {searchTerm ? "No pallets found matching your search." : "No pallets in stock. Start by adding one!"}
                 </td>
               </tr>

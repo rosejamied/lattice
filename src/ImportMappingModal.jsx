@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
-const REQUIRED_FIELDS = ['name', 'sku', 'quantity', 'location'];
+const REQUIRED_FIELDS = [
+  'stockNumber',
+  'inboundOrderNumber',
+  'description',
+  'quantity',
+  'location',
+  'status',
+  'inboundDate',
+  'inboundReference',
+  'storageCostPerWeek',
+  'rhdIn',
+  'rhdOut'];
 
 const ImportMappingModal = ({ isOpen, onClose, onConfirm, csvHeaders }) => {
   const [mappings, setMappings] = useState(

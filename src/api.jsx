@@ -363,3 +363,37 @@ export const addHaulier = (haulierData) => {
 export const clearHauliers = () => {
   return handleRequest(axios.delete(`${API_BASE_URL}/hauliers/all`));
 };
+
+// --- Orders API ---
+
+/**
+ * Fetches all orders from the server.
+ */
+export const getOrders = () => handleRequest(axios.get(`${API_BASE_URL}/orders`));
+
+/**
+ * Adds a new order.
+ * @param {object} orderData - The data for the new order.
+ */
+export const addOrder = (orderData) => handleRequest(axios.post(`${API_BASE_URL}/orders`, orderData));
+
+/**
+ * Updates an existing order.
+ * @param {string} id - The ID of the order to update.
+ * @param {object} orderData - The updated order data.
+ */
+export const updateOrder = (id, orderData) => handleRequest(axios.put(`${API_BASE_URL}/orders/${id}`, orderData));
+
+/**
+ * Deletes an order by its ID.
+ * @param {string} id - The ID of the order to delete.
+ */
+export const deleteOrder = (id) => handleRequest(axios.delete(`${API_BASE_URL}/orders/${id}`));
+
+/**
+ * Deletes all orders.
+ */
+export const clearOrders = () => {
+  // Make a direct axios call to bypass any issues in the handleRequest helper for this specific case.
+  return axios.delete(`${API_BASE_URL}/orders/all`);
+};

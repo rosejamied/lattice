@@ -33,8 +33,8 @@ export const useWarehouseData = () => {
   }, []);
 
   const sortedInventory = useMemo(() => {
-    // The server already sorts by name, but this is a good fallback.
-    return [...inventory].sort((a, b) => a.name.localeCompare(b.name));
+    // Sort by description, which is the new primary text field.
+    return [...inventory].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
   }, [inventory]);
 
   return { inventory: sortedInventory, loading, error, updateInventory };

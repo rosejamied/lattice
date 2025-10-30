@@ -1,79 +1,90 @@
 import React from 'react';
-import { LayoutDashboard, List, Calendar, Settings, LogOut, UserCircle, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, Calendar, Package, Boxes, Settings, LogOut, ChevronLeft, ChevronRight, UserCircle } from 'lucide-react';
 
-const NavItem = ({ icon: Icon, label, isActive, isSidebarOpen, onClick }) => (
+// A reusable component for each navigation item
+const NavItem = ({ icon: Icon, label, page, currentPage, navigate, isOpen }) => (
   <button
-    onClick={onClick}
-    className={`flex items-center w-full text-left py-3 rounded-lg transition-colors duration-200 ${
-      isActive
-        ? 'bg-indigo-600 text-white shadow-lg'
+    onClick={() => navigate(page)}
+    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors duration-200 ${
+      currentPage === page
+        ? 'bg-indigo-600 text-white shadow-md'
         : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-    } ${isSidebarOpen ? 'px-4' : 'px-3 justify-center'}`}
-    title={isSidebarOpen ? label : ''}
+    }`}
   >
-    <Icon className={`w-5 h-5 ${isSidebarOpen ? 'mr-4' : 'mr-0'}`} />
-    <span className={`font-medium transition-opacity duration-200 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>{label}</span>
+    <Icon className="w-6 h-6" />
+    {isOpen && <span className="ml-4 font-medium whitespace-nowrap">{label}</span>}
   </button>
 );
 
 const Sidebar = ({ isOpen, toggle, currentPage, navigate, onLogout, user }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'inventory', label: 'Inventory', icon: List },
-    { id: 'schedule', label: 'Schedule', icon: Calendar },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
-
   const getInitials = (firstName, lastName) => {
-    if (!firstName || !lastName) return <UserCircle className="w-10 h-10 text-gray-500" />;
+    if (!firstName || !lastName) return '?';
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
+  // Define the navigation items in the desired order
+  const navItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', page: 'dashboard' },
+    { icon: Calendar, label: 'Schedule', page: 'schedule' },
+    { icon: Package, label: 'Orders', page: 'orders' },
+    { icon: Boxes, label: 'Inventory', page: 'inventory' },
+    { icon: Settings, label: 'Settings', page: 'settings' },
+  ];
+
   return (
-    <aside className={`flex flex-col bg-gray-800 text-white border-r border-gray-700 shadow-lg transition-all duration-300 ease-in-out ${isOpen ? 'w-64 p-4' : 'w-20 p-4'}`}>
-      <div className={`flex items-center mb-8 ${isOpen ? 'justify-between' : 'justify-center'}`}>
-        <h1 className={`text-2xl font-bold text-white tracking-wider transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>Lattice</h1>
-        <button onClick={toggle} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white">
-          <ChevronLeft className={`w-6 h-6 transition-transform duration-300 ${isOpen ? '' : 'rotate-180'}`} />
-        </button>
+    <div className={`relative flex flex-col bg-gray-800 text-white transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-20'}`}>
+      {/* Header */}
+      <div className="flex items-center justify-center h-20 border-b border-gray-700">
+        <div className={`text-2xl font-bold text-indigo-400 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
+          Lattice
+        </div>
       </div>
 
-      <nav className="flex-grow space-y-2">
-        {navItems.map((item) => (
+      {/* Main Navigation */}
+      <nav className="flex-grow px-4 py-4 space-y-2">
+        {navItems.map(item => (
           <NavItem
-            key={item.id}
-            icon={item.icon}
-            label={item.label}
-            isActive={currentPage === item.id}
-            isSidebarOpen={isOpen}
-            onClick={() => navigate(item.id)}
+            key={item.page}
+            isOpen={isOpen}
+            currentPage={currentPage}
+            navigate={navigate}
+            {...item}
           />
         ))}
       </nav>
 
-      <div className="mt-auto">
-        <div className="border-t border-gray-700 pt-4">
-          <div className={`flex items-center rounded-lg ${isOpen ? 'p-2 hover:bg-gray-700/50' : 'justify-center'}`}>
-            <div className={`w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-white flex-shrink-0 ${isOpen ? 'mr-3' : 'mr-0'}`}>
-              {user ? getInitials(user.firstName, user.lastName) : '?'}
-            </div>
-            <div className={`flex-grow transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>
-              <p className="font-semibold text-white text-sm">
+      {/* Footer with User Info and Logout */}
+      <div className="px-4 py-4 border-t border-gray-700">
+        <div className="flex items-center">
+          <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-white flex-shrink-0">
+            {user ? getInitials(user.firstName, user.lastName) : <UserCircle />}
+          </div>
+          {isOpen && (
+            <div className="ml-3 overflow-hidden">
+              <p className="font-semibold text-white text-sm truncate">
                 {user ? `${user.firstName} ${user.lastName}` : 'Loading...'}
               </p>
-              <p className="text-xs text-gray-400">{user ? user.jobTitle : '...'}</p>
+              <p className="text-xs text-gray-400 truncate">{user ? user.jobTitle : '...'}</p>
             </div>
-            <button
-              onClick={onLogout}
-              className={`p-2 text-gray-400 hover:text-white hover:bg-gray-600 rounded-full transition-colors ${isOpen ? 'ml-2' : 'hidden'}`}
-              title="Log Out"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-          </div>
+          )}
         </div>
+        <button
+          onClick={onLogout}
+          className={`flex items-center w-full px-4 py-3 mt-4 rounded-lg transition-colors duration-200 text-gray-400 hover:bg-red-800/50 hover:text-red-300`}
+        >
+          <LogOut className="w-6 h-6" />
+          {isOpen && <span className="ml-4 font-medium whitespace-nowrap">Logout</span>}
+        </button>
       </div>
-    </aside>
+
+      {/* Toggle Button */}
+      <button
+        onClick={toggle}
+        className="absolute -right-3 top-20 p-1.5 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-500 focus:outline-none"
+      >
+        {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+      </button>
+    </div>
   );
 };
 

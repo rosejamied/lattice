@@ -8,11 +8,12 @@ import { useWarehouseData } from './useWarehouseData'; // Correct hook
 import * as api from './api.jsx'; // Explicitly use the axios-based API file
 
 // --- Components ---
-import Sidebar from './Sidebar';
+import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard';
 import ScheduleView from './ScheduleView';
 import SettingsPage from './SettingsPage'; // Added Settings Page
 import InventoryHoldingPage from './InventoryHoldingPage';
+import OrdersPage from './OrdersPage'; // Import the new Orders page
 
 // --- Mobile Components ---
 import MLoginPage from './mLoginPage';
@@ -148,7 +149,7 @@ const App = () => {
         console.error("Failed to add item:", err);
       });
     }
-    navigate('inventory');
+    // The view will be handled by the InventoryHoldingPage component itself
   }, [inventory, updateInventory, navigate]);
 
   const handleDeleteItem = useCallback((item) => {
@@ -182,9 +183,16 @@ const App = () => {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard inventory={inventory} />;
-      case 'inventory':
-      case 'form':
-        return <InventoryHoldingPage />;
+      case 'inventory': // The 'inventory' case will now handle both list and form views
+        return <InventoryHoldingPage 
+          inventory={inventory} 
+          onSave={handleSaveItem} 
+          onDelete={handleDeleteItem} 
+          loading={loading} 
+          error={error} 
+        />;
+      case 'orders':
+        return <OrdersPage />;
       case 'schedule':
         return <ScheduleView user={user} scheduleSettings={scheduleSettings} />; // Pass settings to ScheduleView
       case 'settings':
