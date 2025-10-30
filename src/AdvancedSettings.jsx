@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Upload, Trash2, AlertTriangle, Loader } from 'lucide-react';
+import { Upload, Trash2, AlertTriangle, Loader, Calendar, KeyRound } from 'lucide-react';
 import * as api from './api.jsx'; // This is already correct
+import { usePermissions } from './usePermissions.jsx';
 import ImportMappingModal from './ImportMappingModal.jsx';
 import Papa from 'papaparse';
 
@@ -13,11 +14,12 @@ const DangerButton = ({ onClick, children }) => (
   </button>
 );
 
-const AdvancedSettings = () => {
+const AdvancedSettings = ({ user, onOpenScheduleSettings, onOpenRolesSettings }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [csvFile, setCsvFile] = useState(null);
   const [csvHeaders, setCsvHeaders] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
+  const can = usePermissions(user);
 
 
   const handleClearData = async (dataType) => {
@@ -121,6 +123,30 @@ const AdvancedSettings = () => {
   return (
     <>
       <div className="space-y-8">
+        {/* --- General Configurations --- */}
+        <div>
+          <h3 className="text-lg font-medium text-white">General Configuration</h3>
+          <p className="text-sm text-gray-400">Configure application-wide settings.</p>
+          <div className="mt-4 p-4 bg-gray-900/50 border border-gray-700 rounded-lg space-y-3">
+            {can('manage-schedule-settings') && (
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Configure visible days and hours for the schedule.</p>
+                <button onClick={onOpenScheduleSettings} className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-500">
+                  <Calendar size={16} className="mr-2" />Schedule Settings
+                </button>
+              </div>
+            )}
+            {can('manage-roles') && (
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Define roles and what permissions they have.</p>
+                <button onClick={onOpenRolesSettings} className="flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-500">
+                  <KeyRound size={16} className="mr-2" />Roles & Permissions
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* --- Import Data Section --- */}
         <div>
           <h3 className="text-lg font-medium text-white">Import Data</h3>
@@ -148,28 +174,30 @@ const AdvancedSettings = () => {
         </div>
 
         {/* --- Danger Zone --- */}
-        <div className="border-t border-red-500/30 pt-6">
-          <h3 className="text-lg font-medium text-red-400 flex items-center"><AlertTriangle className="mr-2" />Danger Zone</h3>
-          <p className="text-sm text-gray-400">These actions are destructive and cannot be undone.</p>
-          <div className="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-lg space-y-3">
-            <div className="flex justify-between items-center">
-              <p className="text-gray-300">Clear all inventory data.</p>
-              <DangerButton onClick={() => handleClearData('inventory')}><Trash2 size={16} className="mr-2" />Clear Inventory</DangerButton>
-            </div>
-            <div className="flex justify-between items-center">
-              <p className="text-gray-300">Clear all schedule & booking data.</p>
-              <DangerButton onClick={() => handleClearData('bookings')}><Trash2 size={16} className="mr-2" />Clear Bookings</DangerButton>
-            </div>
-            <div className="flex justify-between items-center">
-              <p className="text-gray-300">Clear all supplier data.</p>
-              <DangerButton onClick={() => handleClearData('suppliers')}><Trash2 size={16} className="mr-2" />Clear Suppliers</DangerButton>
-            </div>
-            <div className="flex justify-between items-center">
-              <p className="text-gray-300">Clear all haulier data.</p>
-              <DangerButton onClick={() => handleClearData('hauliers')}><Trash2 size={16} className="mr-2" />Clear Hauliers</DangerButton>
+        {can('manage-settings') && (
+          <div className="border-t border-red-500/30 pt-6">
+            <h3 className="text-lg font-medium text-red-400 flex items-center"><AlertTriangle className="mr-2" />Danger Zone</h3>
+            <p className="text-sm text-gray-400">These actions are destructive and cannot be undone.</p>
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-500/30 rounded-lg space-y-3">
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Clear all inventory data.</p>
+                <DangerButton onClick={() => handleClearData('inventory')}><Trash2 size={16} className="mr-2" />Clear Inventory</DangerButton>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Clear all schedule & booking data.</p>
+                <DangerButton onClick={() => handleClearData('bookings')}><Trash2 size={16} className="mr-2" />Clear Bookings</DangerButton>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Clear all supplier data.</p>
+                <DangerButton onClick={() => handleClearData('suppliers')}><Trash2 size={16} className="mr-2" />Clear Suppliers</DangerButton>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-gray-300">Clear all haulier data.</p>
+                <DangerButton onClick={() => handleClearData('hauliers')}><Trash2 size={16} className="mr-2" />Clear Hauliers</DangerButton>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
       <ImportMappingModal
         isOpen={isModalOpen}

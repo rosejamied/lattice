@@ -2,28 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { Users, Plus, Loader, Edit, Trash } from 'lucide-react';
 import * as api from './api.jsx';
 import AddUserModal from './AddUserModal';
+import EditUserModal from './EditUserModal';
 
 const UserSettings = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [allRoles, setAllRoles] = useState([]);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const fetchedUsers = await api.getUsers();
+        const [fetchedUsers, fetchedRoles] = await Promise.all([
+          api.getUsers(),
+          api.getRoles()
+        ]);
         setUsers(fetchedUsers);
+        setAllRoles(fetchedRoles);
         setError(null);
       } catch (err) {
-        setError("Failed to load users.");
+        setError("Failed to load user data.");
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    fetchUsers();
+    fetchData();
   }, []);
 
   const handleAddUser = async (userData) => {
@@ -50,6 +58,33 @@ const UserSettings = () => {
     }
   };
 
+  const handleOpenEditModal = (user) => {
+    setUserToEdit(user);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateUser = async (id, userData) => {
+    try {
+      await api.updateUser(id, userData);
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, ...userData } : u));
+    } catch (err) {
+      setError("Failed to update user. Please try again.");
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
+  const handleDeleteUser = async (id, username) => {
+    // Prevent deleting the last user
+    if (users.length <= 1) {
+      alert("You cannot delete the last user.");
+      return;
+    }
+    if (window.confirm(`Are you sure you want to permanently delete user "${username}"?`)) {
+      await api.deleteUser(id);
+      setUsers(prev => prev.filter(u => u.id !== id));
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -59,7 +94,7 @@ const UserSettings = () => {
             <p className="text-sm text-gray-400">Manage user accounts and permissions.</p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsAddModalOpen(true)}
             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
             <Plus size={18} className="mr-2" />
@@ -89,13 +124,13 @@ const UserSettings = () => {
                     <tr key={user.id} className="hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{`${user.firstName} ${user.lastName}`}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">{user.username}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.role}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.jobTitle}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Date(user.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-indigo-400 hover:text-indigo-300 p-1 rounded-full hover:bg-gray-600 transition-colors mr-2" title="Edit User (coming soon)">
+                        <button onClick={() => handleOpenEditModal(user)} className="text-indigo-400 hover:text-indigo-300 p-1 rounded-full hover:bg-gray-600 transition-colors mr-2" title="Edit User">
                           <Edit className="w-5 h-5" />
                         </button>
-                        <button className="text-red-400 hover:text-red-300 p-1 rounded-full hover:bg-gray-600 transition-colors" title="Delete User (coming soon)">
+                        <button onClick={() => handleDeleteUser(user.id, user.username)} className="text-red-400 hover:text-red-300 p-1 rounded-full hover:bg-gray-600 transition-colors" title="Delete User">
                           <Trash className="w-5 h-5" />
                         </button>
                       </td>
@@ -108,11 +143,13 @@ const UserSettings = () => {
         </div>
       </div>
       <AddUserModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
         onAddUser={handleAddUser}
+        roles={allRoles}
         existingUsers={users}
       />
+      <EditUserModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onUpdateUser={handleUpdateUser} user={userToEdit} roles={allRoles} />
     </>
   );
 };

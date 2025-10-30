@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Settings, Calendar, Users, ShieldAlert, Building } from 'lucide-react';
+import { Settings, Calendar, Users, ShieldAlert, Building, KeyRound, X } from 'lucide-react';
+import { usePermissions } from './usePermissions';
 import UserSettings from './UserSettings';
 import AdvancedSettings from './AdvancedSettings';
 import CustomerSettings from './CustomerSettings';
+import RoleSettings from './RoleSettings';
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -77,15 +79,19 @@ const ScheduleSettings = ({ settings, onSettingsChange }) => {
   );
 };
 
-const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
-  const [activeTab, setActiveTab] = useState('schedule');
+const SettingsPage = ({ user, scheduleSettings, onScheduleSettingsChange }) => {
+  const [activeTab, setActiveTab] = useState('customers');
+  const can = usePermissions(user);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isRolesModalOpen, setIsRolesModalOpen] = useState(false);
 
-  const tabs = [
-    { id: 'schedule', label: 'Schedule', icon: Calendar },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'advanced', label: 'Advanced', icon: ShieldAlert },
-    { id: 'customers', label: 'Customers', icon: Building },
+  const allTabs = [
+    { id: 'customers', label: 'Customers', icon: Building, permission: 'manage-customers' },
+    { id: 'users', label: 'Users', icon: Users, permission: 'manage-users' },
+    { id: 'advanced', label: 'Advanced', icon: ShieldAlert, permission: 'manage-settings' },
   ];
+
+  const visibleTabs = allTabs.filter(tab => !tab.permission || can(tab.permission));
 
   return (
     <div className="p-4 space-y-6">
@@ -95,7 +101,7 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
       </h1>
 
       <div className="flex border-b border-gray-700">
-        {tabs.map(tab => (
+        {visibleTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -113,22 +119,40 @@ const SettingsPage = ({ scheduleSettings, onScheduleSettingsChange }) => {
       </div>
 
       <div className="bg-gray-800 p-6 rounded-xl shadow-lg">
-        {activeTab === 'schedule' && (
-          <ScheduleSettings
-            settings={scheduleSettings}
-            onSettingsChange={onScheduleSettingsChange}
-          />
-        )}
         {activeTab === 'users' && (
-          <UserSettings />
+          <UserSettings user={user} />
         )}
         {activeTab === 'advanced' && (
-          <AdvancedSettings />
+          <AdvancedSettings 
+            user={user}
+            onOpenScheduleSettings={() => setIsScheduleModalOpen(true)}
+            onOpenRolesSettings={() => setIsRolesModalOpen(true)}
+          />
         )}
         {activeTab === 'customers' && (
           <CustomerSettings />
         )}
       </div>
+
+      {/* Schedule Settings Modal */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-4xl m-4 relative">
+            <button onClick={() => setIsScheduleModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button>
+            <ScheduleSettings settings={scheduleSettings} onSettingsChange={onScheduleSettingsChange} />
+          </div>
+        </div>
+      )}
+
+      {/* Roles Settings Modal */}
+      {isRolesModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 p-4">
+          <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-4xl m-4 relative">
+            <button onClick={() => setIsRolesModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X size={24} /></button>
+            <RoleSettings onClose={() => setIsRolesModalOpen(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

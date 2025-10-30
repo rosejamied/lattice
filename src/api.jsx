@@ -138,6 +138,32 @@ export const addUser = (userData) => {
   return handleRequest(axios.post(`${API_BASE_URL}/users`, userData));
 };
 
+/**
+ * Updates an existing user's details.
+ * @param {string} id - The ID of the user to update.
+ * @param {object} userData - The updated user data.
+ */
+export const updateUser = (id, userData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/users/${id}`, userData));
+};
+
+/**
+ * Deletes a user by their ID.
+ * @param {string} id - The ID of the user to delete.
+ */
+export const deleteUser = (id) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/users/${id}`));
+};
+
+/**
+ * Changes a user's password.
+ * @param {string} id - The ID of the user.
+ * @param {string} password - The new password.
+ */
+export const changeUserPassword = (id, password) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/users/${id}/password`, { password }));
+};
+
 // --- Auth API ---
 
 /**
@@ -240,6 +266,47 @@ export const addContract = (contractData) => {
  */
 export const deleteContract = (contractId) => {
   return handleRequest(axios.delete(`${API_BASE_URL}/contracts/${contractId}`));
+};
+
+// --- Permissions API ---
+
+/**
+ * Fetches all role-permission mappings from the server.
+ */
+export const getRolePermissions = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/permissions`));
+};
+
+/**
+ * Updates all role-permission mappings on the server.
+ * @param {object} permissions - The complete role-permission object.
+ */
+export const updateRolePermissions = (permissions) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/permissions`, permissions));
+};
+
+// --- Roles API ---
+
+/**
+ * Fetches all defined roles from the server.
+ */
+export const getRoles = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/roles`));
+};
+
+/**
+ * Adds a new role.
+ * @param {string} name - The name of the new role.
+ */
+export const addRole = (name) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/roles`, { name }));
+};
+
+/**
+ * Deletes all role-permission mappings.
+ */
+export const clearRolePermissions = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/permissions/all`));
 };
 
 // --- Suppliers API ---

@@ -28,11 +28,8 @@ const ScheduleView = ({ scheduleSettings }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [customers, setCustomers] = useState([]);
-  const [allSuppliers, setAllSuppliers] = useState([]);
-  const [allHauliers, setAllHauliers] = useState([]);
-  const [filteredSuppliers, setFilteredSuppliers] = useState([]);
-  const [filteredHauliers, setFilteredHauliers] = useState([]);
-  const [customerContracts, setCustomerContracts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [hauliers, setHauliers] = useState([]);
   const [bookingToEdit, setBookingToEdit] = useState(null);
   const [isFormEditable, setIsFormEditable] = useState(false);
   const [newBooking, setNewBooking] = useState({
@@ -44,7 +41,6 @@ const ScheduleView = ({ scheduleSettings }) => {
     customer_id: null,
     supplier_id: null,
     haulier_id: null,
-    contract_id: null,
     repeat: 'none',
     repeatCount: 1,
     repeatOnDays: [], // Sunday: 0, Monday: 1, etc.
@@ -63,8 +59,8 @@ const ScheduleView = ({ scheduleSettings }) => {
           api.getCustomers(), api.getSuppliers(), api.getHauliers()
         ]);
         setCustomers(custData);
-        setAllSuppliers(suppData);
-        setAllHauliers(haulData);
+        setSuppliers(suppData);
+        setHauliers(haulData);
       } catch (error) { console.error("Failed to fetch form data:", error); }
     };
     fetchData();
@@ -123,6 +119,23 @@ const ScheduleView = ({ scheduleSettings }) => {
     return map;
   }, [bookings]);
   
+  const rowMultipliers = React.useMemo(() => {
+    const multipliers = {};
+    timeSlots.forEach(time => {
+      let maxBookingsInRow = 1; // Default to 1 booking height
+      const hour = parseInt(time);
+      weekDays.forEach(day => {
+        const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${hour}`;
+        const bookingsInSlot = bookingsBySlot[slotKey] || [];
+        if (bookingsInSlot.length > maxBookingsInRow) {
+          maxBookingsInRow = bookingsInSlot.length;
+        }
+      });
+      multipliers[time] = maxBookingsInRow;
+    });
+    return multipliers;
+  }, [timeSlots, weekDays, bookingsBySlot]);
+
   const openBookingsByDay = React.useMemo(() => {
     const map = {};
     bookings.forEach(booking => {
@@ -137,18 +150,13 @@ const ScheduleView = ({ scheduleSettings }) => {
   }, [bookings]);
 
   const followingMondayOpenOutbound = React.useMemo(() => {
-    // Guard clause: If weekdays aren't calculated yet, return a default object to prevent a crash.
-    if (!weekDays || weekDays.length === 0) {
-      return { date: new Date(), bookings: [] };
-    }
-
-    const lastDayOfWeek = weekDays[weekDays.length - 1];
-    const nextMonday = new Date(lastDayOfWeek);
+    const nextMonday = new Date(currentDate);
+    const day = nextMonday.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
     
-    // Calculate days to add to get to the next Monday
-    const day = lastDayOfWeek.getDay(); // 0=Sun, 6=Sat
-    const addDays = (7 - day) + 1;
-    nextMonday.setDate(lastDayOfWeek.getDate() + addDays);
+    // Calculate days to add to get to the *next* Monday.
+    // If today is Sunday (0), add 1 day. If today is Monday (1), add 7 days. If today is Saturday (6), add 2 days.
+    const addDays = (7 - day + 1) % 7;
+    nextMonday.setDate(nextMonday.getDate() + addDays + (addDays === 0 ? 7 : 0) ); // Add 7 if it's Monday to get next Monday
 
     const nextMondayKey = `${nextMonday.getFullYear()}-${nextMonday.getMonth()}-${nextMonday.getDate()}`;
     const allOpenBookingsForNextMonday = openBookingsByDay[nextMondayKey] || [];
@@ -157,34 +165,16 @@ const ScheduleView = ({ scheduleSettings }) => {
       date: nextMonday,
       bookings: allOpenBookingsForNextMonday.filter(b => b.type === 'Outbound')
     };
-  }, [weekDays, openBookingsByDay]);
+  }, [currentDate, openBookingsByDay]);
+
 
   // --- Form and CRUD Logic ---
   const handleFormChange = (e) => {
     const { name, value } = e.target;
 
-    // If the customer is changed, filter the suppliers and hauliers
-    if (name === 'customer_id') {
-      if (value) {
-        Promise.all([
-          api.getCustomerContracts(value),
-          api.getCustomerSuppliers(value),
-          api.getCustomerHauliers(value)
-        ]).then(([contracts, supplierIds, haulierIds]) => {
-          setCustomerContracts(contracts);
-          setFilteredSuppliers(allSuppliers.filter(s => supplierIds.includes(s.id)));
-          setFilteredHauliers(allHauliers.filter(h => haulierIds.includes(h.id)));
-        });
-      } else {
-        setCustomerContracts([]);
-        setFilteredSuppliers([]); // Clear lists if no customer is selected
-        setFilteredHauliers([]);
-      }
-    }
-
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status', 'contract_id'].includes(name)) {
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
-      if (name === 'customer_id') { setNewBooking(prev => ({ ...prev, contract_id: null, supplier_id: null, haulier_id: null })); } // Reset dependent fields
+      return;
     }
 
     if (name === 'isOpenBooking') {
@@ -231,13 +221,10 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: null,
       supplier_id: null,
       haulier_id: null,
-      contract_id: null,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [slotDate.getDay()], // Default to the day clicked
     });
-    setFilteredSuppliers([]); // Reset filters for new booking
-    setFilteredHauliers([]);
     setIsFormOpen(true);
     setIsFormEditable(true); // New bookings are editable by default
   };
@@ -259,13 +246,10 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: null,
       supplier_id: null,
       haulier_id: null,
-      contract_id: null,
       repeat: 'none',
       repeatCount: 1,
       repeatOnDays: [today.getDay()],
     });
-    setFilteredSuppliers([]); // Reset filters for new booking
-    setFilteredHauliers([]);
     setIsFormOpen(true);
     setIsFormEditable(true); // New bookings are editable by default
   };
@@ -274,19 +258,6 @@ const ScheduleView = ({ scheduleSettings }) => {
     setBookingToEdit(booking);
     const startDate = new Date(booking.startDateTime);
     const endDate = new Date(booking.endDateTime);
-
-    // Pre-filter the suppliers and hauliers for the selected booking's customer
-    if (booking.customer_id) {
-      Promise.all([
-        api.getCustomerContracts(booking.customer_id),
-        api.getCustomerSuppliers(booking.customer_id),
-        api.getCustomerHauliers(booking.customer_id)
-      ]).then(([contracts, supplierIds, haulierIds]) => {
-        setCustomerContracts(contracts);
-        setFilteredSuppliers(allSuppliers.filter(s => supplierIds.includes(s.id)));
-        setFilteredHauliers(allHauliers.filter(h => haulierIds.includes(h.id)));
-      });
-    }
 
     setBookingFormData({
       date: startDate.toISOString().substring(0, 10),
@@ -302,7 +273,6 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: booking.customer_id,
       supplier_id: booking.supplier_id,
       haulier_id: booking.haulier_id,
-      contract_id: booking.contract_id,
       isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
@@ -335,7 +305,6 @@ const ScheduleView = ({ scheduleSettings }) => {
         customer_id: newBooking.customer_id || null,
         supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
         haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
-        contract_id: newBooking.contract_id || null,
         status: newBooking.status || 'Booked',
       };
       // Use the new updateBooking function from the hook
@@ -366,7 +335,6 @@ const ScheduleView = ({ scheduleSettings }) => {
             customer_id: newBooking.customer_id || null, status: 'Booked',
             supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
             haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
-            contract_id: newBooking.contract_id || null,
             startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
             endDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:01` : `${entryDateStr}T${endTime}`,
           });
@@ -432,38 +400,45 @@ const ScheduleView = ({ scheduleSettings }) => {
                   {weekDays.map(day => {
                     const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
                     const slotBookings = bookingsBySlot[slotKey] || [];
+                    const rowMultiplier = rowMultipliers[time] || 1;
+                    const slotHeight = 40 * rowMultiplier; // 40px (h-10) * multiplier
+
                     return (
                       <div
                         key={`${day.toISOString()}-${time}`}
                         onClick={() => openFormForSlot(day, parseInt(time))}
-                      className="relative border-b border-l border-gray-700 h-10 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                        className="relative border-b border-l border-gray-700 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                        style={{ height: `${slotHeight}px` }}
                       >
                         <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
                         {slotBookings.map((booking, index) => {
-                          const durationHours = (booking.endDate - booking.startDate) / (1000 * 60 * 60);
-                          const height = `calc(${durationHours * 100}% - 4px)`; // 4px for padding
-                          const top = `${(booking.startDate.getMinutes() / 60) * 100}%`;
-                          const width = `calc(${100 - index * 10}% - 4px)`;
-                          const left = `${index * 5}%`;
+                          let top, height;
+                          const baseSlotHeight = 40; // Corresponds to h-10
+
+                          if (rowMultiplier > 1) {
+                            // If there are multiple bookings, stack them vertically
+                            height = 36; // h-9, slightly less than the base slot height
+                            top = (index * height) + 2; // Stack with a small gap
+                          } else {
+                            // If it's a single booking, calculate height based on duration
+                            const durationMinutes = (booking.endDate - booking.startDate) / (1000 * 60);
+                            height = (durationMinutes / 60) * baseSlotHeight - 4; // -4 for padding
+                            top = (booking.startDate.getMinutes() / 60) * baseSlotHeight;
+                          }
 
                           return (
                           <div
                             key={booking.id}
                             onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
-                            className={`group absolute p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${getStatusClasses(booking.status, booking.type).replace('border-l-2', 'border-l-4')}`}
-                            style={{ height, top, width, left }}
+                            className={`group absolute left-1 right-1 p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${getStatusClasses(booking.status, booking.type).replace('border-l-2', 'border-l-4')}`}
+                            style={{ height: `${height}px`, top: `${top}px` }}
                           >
-                            <div className="flex justify-between items-start">
-                              <div className="truncate">
-                                <p className="truncate">
-                                  <span className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                  <span className="font-bold ml-2">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
-                                  {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
-                                  {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
-                                </p>
-                              </div>
+                            <p className="truncate">
+                              <span className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className="font-bold ml-2">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                              {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
                               {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
-                            </div>
+                            </p>
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }} className="absolute bottom-1 right-1 text-red-400 hover:text-red-200 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Trash className="w-3 h-3" />
                             </button>
@@ -494,9 +469,8 @@ const ScheduleView = ({ scheduleSettings }) => {
         onSubmit={handleAddBooking}
         onChange={handleFormChange}
         customers={customers}
-        suppliers={filteredSuppliers}
-        hauliers={filteredHauliers}
-        contracts={customerContracts}
+        suppliers={suppliers}
+        hauliers={hauliers}
         isEditable={isFormEditable}
         onSetEditable={(e) => {
           e.preventDefault();
@@ -523,8 +497,8 @@ const ScheduleView = ({ scheduleSettings }) => {
                       <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
                         <p className="truncate">
                           <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
-                          {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
-                          {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
+                          {booking.contractName && <span className="text-gray-200"> - {booking.contractName}</span>}
+                          {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
                         </p>
                       </div>
                     ))}
@@ -537,7 +511,7 @@ const ScheduleView = ({ scheduleSettings }) => {
           })}
 
           {/* Following Monday's Open Outbound Bookings */}
-          <div className="border-t-2 border-dashed border-yellow-500/30 pt-4 mt-4">
+          <div className="border-t-2 border-dashed border-gray-600 pt-4 mt-4">
             <h3 className="font-semibold text-gray-300 mb-2">
               {followingMondayOpenOutbound.date.toLocaleDateString('default', { weekday: 'long', day: 'numeric' })}
             </h3>
@@ -547,8 +521,7 @@ const ScheduleView = ({ scheduleSettings }) => {
                   <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
                     <p className="truncate">
                       <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
-                      {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
-                      {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
+                      {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
                     </p>
                   </div>
                 ))}

@@ -62,7 +62,7 @@ const BookingForm = ({
           </select>
         </div>
         {/* Contract Dropdown - only shows if a customer is selected */}
-        {newBooking.customer_id && (
+        {newBooking.customer_id && contracts && contracts.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <select id="contract_id" name="contract_id" value={newBooking.contract_id || ''} onChange={onChange} disabled={!isEditable} className="w-full p-2 rounded-lg bg-gray-900 text-gray-100 border border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-700 disabled:cursor-not-allowed">
               <option value="">-- Select Contract (Optional) --</option>

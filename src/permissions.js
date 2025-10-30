@@ -1,0 +1,36 @@
+export const PERMISSIONS = {
+  // Bookings
+  CREATE_BOOKING: 'create-booking',
+  EDIT_BOOKING: 'edit-booking',
+  DELETE_BOOKING: 'delete-booking',
+  CHANGE_BOOKING_STATUS: 'change-booking-status',
+
+  // Settings
+  MANAGE_USERS: 'manage-users',
+  MANAGE_CUSTOMERS: 'manage-customers',
+  MANAGE_SETTINGS: 'manage-settings',
+  MANAGE_ROLES: 'manage-roles',
+  MANAGE_SCHEDULE_SETTINGS: 'manage-schedule-settings',
+};
+
+export const ROLES = {
+  ADMIN: 'Admin',
+  MANAGER: 'Manager',
+  OPERATOR: 'Operator',
+};
+
+export const ROLE_PERMISSIONS = {
+  [ROLES.ADMIN]: Object.values(PERMISSIONS),
+  [ROLES.MANAGER]: [
+    PERMISSIONS.CREATE_BOOKING,
+    PERMISSIONS.EDIT_BOOKING,
+    PERMISSIONS.DELETE_BOOKING,
+    PERMISSIONS.CHANGE_BOOKING_STATUS,
+    PERMISSIONS.MANAGE_USERS,
+    PERMISSIONS.MANAGE_CUSTOMERS,
+    PERMISSIONS.MANAGE_SETTINGS,
+    PERMISSIONS.MANAGE_ROLES,
+    PERMISSIONS.MANAGE_SCHEDULE_SETTINGS,
+  ],
+  [ROLES.OPERATOR]: [PERMISSIONS.CHANGE_BOOKING_STATUS],
+};

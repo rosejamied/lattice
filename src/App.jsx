@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader } from 'lucide-react';
 
+import { usePermissions } from './usePermissions';
 import LoginPage from './LoginPage'; // Import the new Login Page
 // --- Hooks ---
 import { useWarehouseData } from './useWarehouseData'; // Correct hook
@@ -9,10 +10,9 @@ import * as api from './api.jsx'; // Explicitly use the axios-based API file
 // --- Components ---
 import Sidebar from './Sidebar';
 import Dashboard from './Dashboard';
-import InventoryList from './InventoryList';
-import InventoryForm from './InventoryForm';
 import ScheduleView from './ScheduleView';
 import SettingsPage from './SettingsPage'; // Added Settings Page
+import InventoryHoldingPage from './InventoryHoldingPage';
 
 // --- Mobile Components ---
 import MLoginPage from './mLoginPage';
@@ -53,6 +53,9 @@ const App = () => {
 
   // --- Responsive Hook ---
   const isMobile = useIsMobile();
+
+  // --- Permissions Hook ---
+  const can = usePermissions(user);
 
   // --- Effects ---
   // Check for existing session on initial load
@@ -180,21 +183,12 @@ const App = () => {
       case 'dashboard':
         return <Dashboard inventory={inventory} />;
       case 'inventory':
-        return (
-          <InventoryList
-            inventory={inventory}
-            loading={loading}
-            error={error}
-            onEdit={(item) => navigate('form', item)}
-            onDelete={handleDeleteItem}
-          />
-        );
       case 'form':
-        return <InventoryForm itemToEdit={itemToEdit} onSave={handleSaveItem} onCancel={() => navigate('inventory')} />;
+        return <InventoryHoldingPage />;
       case 'schedule':
-        return <ScheduleView scheduleSettings={scheduleSettings} />; // Pass settings to ScheduleView
+        return <ScheduleView user={user} scheduleSettings={scheduleSettings} />; // Pass settings to ScheduleView
       case 'settings':
-        return <SettingsPage scheduleSettings={scheduleSettings} onScheduleSettingsChange={handleScheduleSettingsChange} />;
+        return <SettingsPage user={user} scheduleSettings={scheduleSettings} onScheduleSettingsChange={handleScheduleSettingsChange} />;
       default:
         return <Dashboard inventory={inventory} />;
     }

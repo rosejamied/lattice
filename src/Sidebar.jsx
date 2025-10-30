@@ -61,7 +61,7 @@ const Sidebar = ({ isOpen, toggle, currentPage, navigate, onLogout, user }) => {
               <p className="font-semibold text-white text-sm">
                 {user ? `${user.firstName} ${user.lastName}` : 'Loading...'}
               </p>
-              <p className="text-xs text-gray-400">{user ? user.role : '...'}</p>
+              <p className="text-xs text-gray-400">{user ? user.jobTitle : '...'}</p>
             </div>
             <button
               onClick={onLogout}
