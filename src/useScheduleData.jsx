@@ -62,10 +62,6 @@ export const useScheduleData = () => {
   }, [bookings]);
 
   const updateBooking = useCallback(async (updatedBooking) => {
-    const originalBookings = bookings;
-    // Optimistic UI Update
-    setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
-
     try {
       // The API call only needs the fields to be updated, not the whole object with calculated values.
       await api.updateBooking(updatedBooking.id, {
