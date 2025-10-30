@@ -23,7 +23,7 @@ const MMenu = ({ user, onLogout, navigate }) => {
         <h1 className="text-4xl font-bold text-white">Lattice Mobile</h1>
       </header>
 
-      <main className="flex-grow flex flex-col justify-around gap-4">
+      <main className="flex-grow flex flex-col justify-around">
         <MenuButton icon={Calendar} label="Schedule" onClick={() => navigate('schedule')} />
         <MenuButton icon={Package} label="Orders" onClick={() => navigate('orders')} />
         <MenuButton icon={Boxes} label="Stock Control" onClick={() => navigate('stock')} />
