@@ -8,20 +8,36 @@ export const useScheduleData = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const loadBookings = useCallback(async () => {
+    try {
+      const data = await api.getBookings();
+      setBookings(data);
+    } catch (error) {
+      console.error("Failed to fetch bookings from server:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Load from the API on mount
   useEffect(() => {
-    const loadBookings = async () => {
-      try {
-        const data = await api.getBookings();
-        setBookings(data);
-      } catch (error) {
-        console.error("Failed to fetch bookings from server:", error);
-      } finally {
-        setLoading(false);
+    loadBookings();
+
+    // Establish SSE connection
+    const eventSource = new EventSource('/api/events');
+    console.log("Connecting to SSE endpoint...");
+
+    eventSource.onmessage = (event) => {
+      const parsedData = JSON.parse(event.data);
+      if (parsedData.type === 'bookings-changed') {
+        console.log("SSE event received: bookings-changed. Re-fetching bookings.");
+        loadBookings();
       }
     };
-    loadBookings();
-  }, []);
+
+    // Cleanup on unmount
+    return () => eventSource.close();
+  }, [loadBookings]);
 
   // This function is now more of a "request update" function.
   // The front-end will optimistically update its state, and the back-end call will persist it.
