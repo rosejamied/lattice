@@ -40,28 +40,40 @@ export const useScheduleData = () => {
   }, []);
 
   const addBooking = useCallback(async (newEntries) => {
+    // Optimistic UI Update
+    const originalBookings = bookings;
+    setBookings(prev => [...newEntries, ...prev]);
+
     try {
       await api.addBooking(newEntries);
-      loadBookings(); // Refresh data from server after successful add
     } catch (error) {
       console.error("Failed to save new bookings to server:", error);
       setError(error); // Set error state
-      // Optionally, re-fetch to ensure UI is consistent with DB if add failed
-      // loadBookings();
+      // Revert optimistic update on failure
+      setBookings(originalBookings);
     }
-  }, []);
+  }, [bookings]);
 
   const deleteBooking = useCallback(async (id) => {
+    const originalBookings = bookings;
+    // Optimistic UI Update
+    setBookings(prev => prev.filter(b => b.id !== id));
+
     try {
       await api.deleteBooking(id);
-      loadBookings(); // Refresh data from server after successful delete
     } catch (error) {
       console.error("Failed to delete booking on server:", error);
       setError(error); // Set error state
+      // Revert optimistic update on failure
+      setBookings(originalBookings);
     }
   }, [bookings]);
 
   const updateBooking = useCallback(async (updatedBooking) => {
+    const originalBookings = bookings;
+    // Optimistic UI Update
+    setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+
     try {
       // The API call only needs the fields to be updated, not the whole object with calculated values.
       await api.updateBooking(updatedBooking.id, {
@@ -76,10 +88,10 @@ export const useScheduleData = () => {
         status: updatedBooking.status,
         contract_id: updatedBooking.contract_id,
       });
-      loadBookings(); // Refresh data from server after successful update
     } catch (error) {
       console.error("Failed to update booking on server:", error);
       setError(error); // Set error state
+      setBookings(originalBookings); // Revert on failure
     }
   }, [bookings]);
 
