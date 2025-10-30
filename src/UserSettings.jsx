@@ -122,7 +122,10 @@ const UserSettings = () => {
                 <tbody className="divide-y divide-gray-700">
                   {users.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-700/50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{`${user.firstName} ${user.lastName}`}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="font-medium text-white">{`${user.firstName} ${user.lastName}`}</div>
+                        <div className="text-gray-400">{user.jobTitle}</div>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">{user.username}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.role}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Date(user.createdAt).toLocaleDateString()}</td>

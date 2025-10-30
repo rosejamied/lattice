@@ -118,7 +118,7 @@ db.run(`CREATE TABLE IF NOT EXISTS hauliers (
 
 // Create users table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, username TEXT UNIQUE, firstName TEXT, lastName TEXT, role TEXT, passwordHash TEXT, createdAt TEXT
+  id TEXT PRIMARY KEY, username TEXT UNIQUE, firstName TEXT, lastName TEXT, role TEXT, jobTitle TEXT, passwordHash TEXT, createdAt TEXT
 )`);
 
 // --- Routes ---
@@ -644,7 +644,7 @@ app.post('/api/login', (req, res) => {
     }
 
     // Passwords match, create JWT
-    const userPayload = { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName };
+    const userPayload = { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName, jobTitle: user.jobTitle };
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '8h' });
 
     res.status(200).json({ token, user: userPayload });
