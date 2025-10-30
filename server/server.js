@@ -24,35 +24,6 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
   console.log('Connected to the lattice.db SQLite database.');
 });
 
-// --- SSE (Server-Sent Events) Setup ---
-let clients = [];
-
-const sendEventToAll = (data) => {
-  console.log('Sending event to all clients:', data);
-  clients.forEach(client => client.res.write(`data: ${JSON.stringify(data)}\n\n`));
-};
-
-app.get('/api/events', (req, res) => {
-  // Set headers for SSE
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const clientId = Date.now();
-  const newClient = {
-    id: clientId,
-    res: res,
-  };
-  clients.push(newClient);
-  console.log(`Client ${clientId} connected`);
-
-  req.on('close', () => {
-    console.log(`Client ${clientId} Connection closed`);
-    clients = clients.filter(client => client.id !== clientId);
-  });
-});
-
 // --- Database Schema Migrations ---
 // This is a simple way to handle schema changes without dropping the table.
 db.serialize(() => {
@@ -112,24 +83,6 @@ db.serialize(() => {
     id TEXT PRIMARY KEY, name TEXT NOT NULL, customer_id TEXT NOT NULL, createdAt TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
   )`, (err) => { if (err) { console.error("Error creating contracts table:", err.message); }});
-
-  // Add jobTitle to users table
-  db.run(`ALTER TABLE users ADD COLUMN jobTitle TEXT`, (err) => {
-    if (err && err.message.includes('duplicate column name')) { /* Ignore */ }
-    else if (err) { console.error('Error adding "jobTitle" to "users":', err.message); }
-  });
-
-  // Add role_permissions join table
-  db.run(`CREATE TABLE IF NOT EXISTS role_permissions (
-    role TEXT NOT NULL, permission TEXT NOT NULL, PRIMARY KEY (role, permission)
-  )`, (err) => { if (err) { console.error("Error creating role_permissions table:", err.message); }});
-
-  // Add roles table
-  db.run(`CREATE TABLE IF NOT EXISTS roles (
-    name TEXT PRIMARY KEY
-  )`, (err) => { if (err) { console.error("Error creating roles table:", err.message); }});
-
-
 });
 
 // Create bookings table if it doesn't exist
@@ -165,7 +118,7 @@ db.run(`CREATE TABLE IF NOT EXISTS hauliers (
 
 // Create users table if it doesn't exist
 db.run(`CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY, username TEXT UNIQUE, firstName TEXT, lastName TEXT, role TEXT, passwordHash TEXT, createdAt TEXT, jobTitle TEXT
+  id TEXT PRIMARY KEY, username TEXT UNIQUE, firstName TEXT, lastName TEXT, role TEXT, passwordHash TEXT, createdAt TEXT
 )`);
 
 // --- Routes ---
@@ -205,7 +158,6 @@ app.post('/api/bookings', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    sendEventToAll({ type: 'bookings-changed' });
     res.status(201).json(newBookings);
   });
 });
@@ -234,7 +186,6 @@ app.put('/api/bookings/:id', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    sendEventToAll({ type: 'bookings-changed' });
     res.status(this.changes > 0 ? 200 : 404).json({ message: "Booking updated", changes: this.changes });
   });
 });
@@ -246,7 +197,6 @@ app.delete('/api/bookings/:id', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    sendEventToAll({ type: 'bookings-changed' });
     res.status(this.changes > 0 ? 204 : 404).send(); // 204 No Content, or 404 Not Found
   });
 });
@@ -357,7 +307,7 @@ app.delete('/api/inventory/:id', (req, res) => {
 // GET all users
 app.get('/api/users', (req, res) => {
   // Select all fields except passwordHash for security
-  db.all("SELECT id, username, firstName, lastName, role, createdAt, jobTitle FROM users ORDER BY lastName ASC", [], (err, rows) => {
+  db.all("SELECT id, username, firstName, lastName, role, createdAt FROM users ORDER BY lastName ASC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(200).json(rows);
   });
@@ -365,10 +315,10 @@ app.get('/api/users', (req, res) => {
 
 // POST a new user
 app.post('/api/users', (req, res) => {
-  const { id, username, firstName, lastName, role, password, createdAt, jobTitle } = req.body;
+  const { id, username, firstName, lastName, role, password, createdAt } = req.body;
 
   // Basic validation
-  if (!username || !firstName || !lastName || !role || !password || !jobTitle) {
+  if (!username || !firstName || !lastName || !role || !password) {
     return res.status(400).json({ message: "Missing required fields." });
   }
 
@@ -377,8 +327,8 @@ app.post('/api/users', (req, res) => {
   const passwordHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
   const storedPassword = `${salt}:${passwordHash}`; // Store salt with hash
 
-  const sql = `INSERT INTO users (id, username, firstName, lastName, role, passwordHash, createdAt, jobTitle) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [id, username, firstName, lastName, role, storedPassword, createdAt, jobTitle], function(err) {
+  const sql = `INSERT INTO users (id, username, firstName, lastName, role, passwordHash, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  db.run(sql, [id, username, firstName, lastName, role, storedPassword, createdAt], function(err) {
     if (err) {
       // Handle unique constraint violation for username
       if (err.message.includes('UNIQUE constraint failed: users.username')) {
@@ -386,57 +336,7 @@ app.post('/api/users', (req, res) => {
       }
       return res.status(500).json({ error: err.message });
     }
-    res.status(201).json({ id, username, firstName, lastName, role, createdAt, jobTitle });
-  });
-});
-
-// PUT (update) a user by ID
-app.put('/api/users/:id', (req, res) => {
-  const { id } = req.params;
-  const { username, firstName, lastName, role, jobTitle } = req.body;
-
-  // Basic validation
-  if (!username || !firstName || !lastName || !role || !jobTitle) {
-    return res.status(400).json({ message: "Missing required fields." });
-  }
-
-  const sql = `UPDATE users SET username = ?, firstName = ?, lastName = ?, role = ?, jobTitle = ? WHERE id = ?`;
-  db.run(sql, [username, firstName, lastName, role, jobTitle, id], function(err) {
-    if (err && err.message.includes('UNIQUE constraint failed')) {
-      return res.status(409).json({ message: `Username '${username}' already exists.` });
-    }
-    if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ message: "User not found." });
-    res.status(200).json({ message: "User updated successfully." });
-  });
-});
-
-// PUT to change a user's password
-app.put('/api/users/:id/password', (req, res) => {
-  const { id } = req.params;
-  const { password } = req.body;
-
-  if (!password) {
-    return res.status(400).json({ message: "Password is required." });
-  }
-
-  const salt = crypto.randomBytes(16).toString('hex');
-  const passwordHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-  const storedPassword = `${salt}:${passwordHash}`;
-
-  db.run(`UPDATE users SET passwordHash = ? WHERE id = ?`, [storedPassword, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ message: "User not found." });
-    res.status(200).json({ message: "Password updated successfully." });
-  });
-});
-
-// DELETE a user by ID
-app.delete('/api/users/:id', (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM users WHERE id = ?`, id, function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(this.changes > 0 ? 204 : 404).send();
+    res.status(201).json({ id, username, firstName, lastName, role, createdAt });
   });
 });
 
@@ -691,78 +591,6 @@ app.delete('/api/hauliers/all', (req, res) => {
   });
 });
 
-// --- Role Permissions Routes ---
-
-// GET all defined roles
-app.get('/api/roles', (req, res) => {
-  db.all("SELECT name FROM roles ORDER BY name ASC", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(200).json(rows.map(r => r.name));
-  });
-});
-
-// POST a new role
-app.post('/api/roles', (req, res) => {
-  const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ message: "Role name is required." });
-  }
-  db.run(`INSERT INTO roles (name) VALUES (?)`, [name], function(err) {
-    if (err && err.message.includes('UNIQUE constraint failed')) {
-      return res.status(409).json({ message: `Role '${name}' already exists.` });
-    }
-    if (err) return res.status(500).json({ error: err.message });
-    res.status(201).json({ name });
-  });
-});
-
-// GET all role permissions
-app.get('/api/permissions', (req, res) => {
-  db.all("SELECT * FROM role_permissions", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    
-    // Group permissions by role
-    const rolePermissions = rows.reduce((acc, row) => {
-      if (!acc[row.role]) {
-        acc[row.role] = [];
-      }
-      acc[row.role].push(row.permission);
-      return acc;
-    }, {});
-
-    res.status(200).json(rolePermissions);
-  });
-});
-
-// PUT (update) all role permissions
-app.put('/api/permissions', (req, res) => {
-  const rolePermissions = req.body; // Expecting an object like { "Manager": ["perm1", "perm2"], ... }
-
-  db.serialize(() => {
-    db.run("BEGIN TRANSACTION");
-    db.run("DELETE FROM role_permissions"); // Clear the table first
-    const stmt = db.prepare("INSERT INTO role_permissions (role, permission) VALUES (?, ?)");
-    for (const role in rolePermissions) {
-      rolePermissions[role].forEach(permission => {
-        stmt.run(role, permission);
-      });
-    }
-    stmt.finalize(err => {
-      if (err) { db.run("ROLLBACK"); return res.status(500).json({ error: err.message }); }
-      db.run("COMMIT", () => res.status(200).json({ message: "Permissions updated successfully." }));
-    });
-  });
-});
-
-// DELETE all role permissions
-app.delete('/api/permissions/all', (req, res) => {
-  db.run(`DELETE FROM role_permissions`, [], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    console.log(`All role permissions cleared. ${this.changes} rows affected.`);
-    res.status(204).send();
-  });
-});
-
 // --- Auth Routes ---
 
 // POST to login
@@ -786,7 +614,7 @@ app.post('/api/login', (req, res) => {
     }
 
     // Passwords match, create JWT
-    const userPayload = { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName, jobTitle: user.jobTitle };
+    const userPayload = { id: user.id, username: user.username, role: user.role, firstName: user.firstName, lastName: user.lastName };
     const token = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '8h' });
 
     res.status(200).json({ token, user: userPayload });
