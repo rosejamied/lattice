@@ -193,7 +193,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
           isOpen={isDetailsModalOpen}
           onClose={() => setIsDetailsModalOpen(false)}
           onUpdateStatus={handleUpdateStatus}
-          bookingToEdit={bookingToEdit}
+          booking={bookingToEdit}
           customers={customers}
         />
       )}
