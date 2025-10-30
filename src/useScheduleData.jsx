@@ -7,6 +7,7 @@ import * as api from './api.jsx'; // Import the new API service
 export const useScheduleData = () => {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); // Added for error handling
 
   const loadBookings = useCallback(async () => {
     try {
@@ -14,29 +15,20 @@ export const useScheduleData = () => {
       setBookings(data);
     } catch (error) {
       console.error("Failed to fetch bookings from server:", error);
+      setError(error); // Set error state
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const refreshBookings = useCallback(() => {
+    setLoading(true); // Indicate loading when refreshing
+    loadBookings();
+  }, [loadBookings]);
+
   // Load from the API on mount
   useEffect(() => {
     loadBookings();
-
-    // Establish SSE connection
-    const eventSource = new EventSource('/api/events');
-    console.log("Connecting to SSE endpoint...");
-
-    eventSource.onmessage = (event) => {
-      const parsedData = JSON.parse(event.data);
-      if (parsedData.type === 'bookings-changed') {
-        console.log("SSE event received: bookings-changed. Re-fetching bookings.");
-        loadBookings();
-      }
-    };
-
-    // Cleanup on unmount
-    return () => eventSource.close();
   }, [loadBookings]);
 
   // This function is now more of a "request update" function.
@@ -48,29 +40,24 @@ export const useScheduleData = () => {
   }, []);
 
   const addBooking = useCallback(async (newEntries) => {
-    // Optimistic UI Update
-    setBookings(prev => [...newEntries, ...prev]);
-
     try {
       await api.addBooking(newEntries);
+      loadBookings(); // Refresh data from server after successful add
     } catch (error) {
       console.error("Failed to save new bookings to server:", error);
-      // Revert optimistic update on failure
-      setBookings(prev => prev.filter(b => !newEntries.some(nb => nb.id === b.id)));
+      setError(error); // Set error state
+      // Optionally, re-fetch to ensure UI is consistent with DB if add failed
+      // loadBookings();
     }
   }, []);
 
   const deleteBooking = useCallback(async (id) => {
-    const originalBookings = bookings;
-    // Optimistic UI Update
-    setBookings(prev => prev.filter(b => b.id !== id));
-
     try {
       await api.deleteBooking(id);
+      loadBookings(); // Refresh data from server after successful delete
     } catch (error) {
       console.error("Failed to delete booking on server:", error);
-      // Revert optimistic update on failure
-      setBookings(originalBookings);
+      setError(error); // Set error state
     }
   }, [bookings]);
 
@@ -93,9 +80,10 @@ export const useScheduleData = () => {
         status: updatedBooking.status,
         contract_id: updatedBooking.contract_id,
       });
+      loadBookings(); // Refresh data from server after successful update
     } catch (error) {
       console.error("Failed to update booking on server:", error);
-      setBookings(originalBookings); // Revert on failure
+      setError(error); // Set error state
     }
   }, [bookings]);
 
@@ -103,6 +91,5 @@ export const useScheduleData = () => {
     // The server will eventually handle sorting, but we'll keep it here for now.
     return [...bookings].sort((a, b) => new Date(a.startDateTime) - new Date(b.startDateTime));
   }, [bookings]);
-
-  return { bookings: sortedBookings, loading, updateBookings, addBooking, deleteBooking, updateBooking };
+  return { bookings: sortedBookings, loading, error, refreshBookings, updateBookings, addBooking, deleteBooking, updateBooking };
 };
