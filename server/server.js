@@ -24,6 +24,35 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
   console.log('Connected to the lattice.db SQLite database.');
 });
 
+// --- SSE (Server-Sent Events) Setup ---
+let clients = [];
+
+const sendEventToAll = (data) => {
+  console.log('Sending event to all clients:', data);
+  clients.forEach(client => client.res.write(`data: ${JSON.stringify(data)}\n\n`));
+};
+
+app.get('/api/events', (req, res) => {
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const clientId = Date.now();
+  const newClient = {
+    id: clientId,
+    res: res,
+  };
+  clients.push(newClient);
+  console.log(`Client ${clientId} connected`);
+
+  req.on('close', () => {
+    console.log(`Client ${clientId} Connection closed`);
+    clients = clients.filter(client => client.id !== clientId);
+  });
+});
+
 // --- Database Schema Migrations ---
 // This is a simple way to handle schema changes without dropping the table.
 db.serialize(() => {
@@ -158,6 +187,7 @@ app.post('/api/bookings', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    sendEventToAll({ type: 'bookings-changed' });
     res.status(201).json(newBookings);
   });
 });
@@ -186,6 +216,7 @@ app.put('/api/bookings/:id', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    sendEventToAll({ type: 'bookings-changed' });
     res.status(this.changes > 0 ? 200 : 404).json({ message: "Booking updated", changes: this.changes });
   });
 });
@@ -197,6 +228,7 @@ app.delete('/api/bookings/:id', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    sendEventToAll({ type: 'bookings-changed' });
     res.status(this.changes > 0 ? 204 : 404).send(); // 204 No Content, or 404 Not Found
   });
 });
@@ -588,6 +620,24 @@ app.delete('/api/hauliers/all', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     console.log(`All haulier data cleared. ${this.changes} rows affected.`);
     res.status(204).send();
+  });
+});
+
+// GET all role permissions
+app.get('/api/permissions', (req, res) => {
+  db.all("SELECT * FROM role_permissions", [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    // Group permissions by role
+    const rolePermissions = rows.reduce((acc, row) => {
+      if (!acc[row.role]) {
+        acc[row.role] = [];
+      }
+      acc[row.role].push(row.permission);
+      return acc;
+    }, {});
+
+    res.status(200).json(rolePermissions);
   });
 });
 
