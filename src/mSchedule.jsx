@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Loader, Trash } from 'lucide-react';
 import { useScheduleData } from './useScheduleData';
 import * as api from './api.jsx'; // Needed to fetch customer data
-import BookingForm from './BookingForm.jsx';
+import mBookingDetails from './mBookingDetails.jsx';
 
 const getStatusClasses = (status, type) => {
   switch (status) {
@@ -31,18 +31,9 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   const [customerContracts, setCustomerContracts] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(true);
 
-  // Form State
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isFormEditable, setIsFormEditable] = useState(false);
+  // Modal State
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [bookingToEdit, setBookingToEdit] = useState(null);
-  const [newBooking, setNewBooking] = useState({ // This state is for the form
-    name: '', type: 'Inbound', expectedPallets: '', isOpenBooking: false,
-    customer_id: null, supplier_id: null, haulier_id: null, contract_id: null,
-    repeat: 'none', repeatCount: 1, repeatOnDays: [],
-  });
-  const [bookingFormData, setBookingFormData] = useState({
-    date: '', startTime: '', endTime: '',
-  });
 
   // Fetch customers for display names
   React.useEffect(() => {
@@ -97,109 +88,23 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
   // Define the height of one hour slot in pixels for calculation
   const HOUR_HEIGHT_PX = 60;
 
-  // --- Form and CRUD Logic ---
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-
-    if (name === 'customer_id') {
-      if (value) {
-        Promise.all([
-          api.getCustomerContracts(value),
-          api.getCustomerSuppliers(value),
-          api.getCustomerHauliers(value)
-        ]).then(([contracts, supplierIds, haulierIds]) => {
-          setCustomerContracts(contracts);
-          setFilteredSuppliers(suppliers.filter(s => supplierIds.includes(s.id)));
-          setFilteredHauliers(hauliers.filter(h => haulierIds.includes(h.id)));
-        });
-      } else {
-        setCustomerContracts([]);
-        setFilteredSuppliers([]);
-        setFilteredHauliers([]);
-      }
-    }
-
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status', 'contract_id'].includes(name)) {
-      setNewBooking(prev => ({ ...prev, [name]: value }));
-    } else if (name === 'isOpenBooking') {
-      setNewBooking(prev => ({ ...prev, isOpenBooking: e.target.checked }));
-    } else {
-      setBookingFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleEditBooking = (booking) => {
+  const handleOpenDetails = (booking) => {
     setBookingToEdit(booking);
-    const startDate = new Date(booking.startDateTime);
-    const endDate = new Date(booking.endDateTime);
-
-    if (booking.customer_id) {
-      Promise.all([
-        api.getCustomerContracts(booking.customer_id),
-        api.getCustomerSuppliers(booking.customer_id),
-        api.getCustomerHauliers(booking.customer_id)
-      ]).then(([contracts, supplierIds, haulierIds]) => {
-        setCustomerContracts(contracts);
-        setFilteredSuppliers(suppliers.filter(s => supplierIds.includes(s.id)));
-        setFilteredHauliers(hauliers.filter(h => haulierIds.includes(h.id)));
-      });
-    }
-
-    setBookingFormData({
-      date: startDate.toISOString().substring(0, 10),
-      startTime: startDate.toTimeString().substring(0, 5),
-      endTime: endDate.toTimeString().substring(0, 5),
-    });
-
-    setNewBooking({
-      name: booking.name,
-      type: booking.type,
-      status: booking.status,
-      expectedPallets: booking.expectedPallets || '',
-      customer_id: booking.customer_id,
-      supplier_id: booking.supplier_id,
-      haulier_id: booking.haulier_id,
-      contract_id: booking.contract_id,
-      isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
-      repeatCount: 1,
-      repeatOnDays: [],
-    });
-    setIsFormOpen(true);
-    setIsFormEditable(false); // Open in read-only mode
+    setIsDetailsModalOpen(true);
   };
 
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    const { date, startTime, endTime } = bookingFormData;
-    const finalStartDateTime = newBooking.isOpenBooking ? `${date}T00:00:00` : `${date}T${startTime}`;
-    const finalEndDateTime = newBooking.isOpenBooking ? `${date}T00:00:01` : `${date}T${endTime}`;
-
-    if (bookingToEdit) {
-      const bookingToUpdate = {
-        ...bookingToEdit, 
-        name: newBooking.name, 
-        type: newBooking.type, 
-        startDateTime: finalStartDateTime, 
-        endDateTime: finalEndDateTime, 
-        expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0, 
-        customer_id: newBooking.customer_id || null,
-        supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
-        haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
-        contract_id: newBooking.contract_id || null,
-        status: newBooking.status || 'Booked',
-      };
-      updateBooking(bookingToUpdate);
-    } else {
-      // Add new booking logic would go here if needed for mobile
+  const handleUpdateStatus = (bookingId, newStatus) => {
+    const bookingToUpdate = bookings.find(b => b.id === bookingId);
+    if (bookingToUpdate) {
+      updateBooking({ ...bookingToUpdate, status: newStatus });
     }
-    setIsFormOpen(false);
   };
 
   const handleDeleteBooking = (id) => {
     if (window.confirm("Are you sure you want to delete this booking?")) {
       deleteBooking(id);
       setBookingToEdit(null);
-      setIsFormOpen(false); // Close form if open
+      setIsDetailsModalOpen(false); // Close details modal if open
     }
   };
 
@@ -234,8 +139,8 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
               <div className="space-y-2">
                 {openBookings.length > 0 ? openBookings.map(booking => (
                   <div 
-                    key={booking.id} 
-                    onClick={() => handleEditBooking(booking)}
+                    key={booking.id}
+                    onClick={() => handleOpenDetails(booking)}
                     className={`p-3 rounded-lg flex justify-between items-start cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}
                   >
                     <div className="flex-grow min-w-0 mr-2">
@@ -261,7 +166,7 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
               <h3 className="text-lg font-semibold text-gray-300 mb-2">Timed Bookings</h3>
               <div className="space-y-2">
                 {timedBookings.length > 0 ? timedBookings.map(booking => (
-                  <div key={booking.id} className="flex items-center gap-3" onClick={() => handleEditBooking(booking)}>
+                  <div key={booking.id} className="flex items-center gap-3" onClick={() => handleOpenDetails(booking)}>
                     <div className="w-20 text-center text-gray-400 font-mono text-sm">
                       <p>{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       <p>-</p>
@@ -283,23 +188,13 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
           </>
         )}
       </main>
-      {isFormOpen && (
-        <BookingForm
+      {isDetailsModalOpen && (
+        <mBookingDetails
+          isOpen={isDetailsModalOpen}
+          onClose={() => setIsDetailsModalOpen(false)}
+          onUpdateStatus={handleUpdateStatus}
           bookingToEdit={bookingToEdit}
-          newBooking={newBooking}
-          bookingFormData={bookingFormData}
-          onClose={() => setIsFormOpen(false)}
-          onSubmit={handleFormSubmit}
-          onChange={handleFormChange}
           customers={customers}
-          suppliers={filteredSuppliers}
-          hauliers={filteredHauliers}
-          contracts={customerContracts}
-          isEditable={isFormEditable}
-          onSetEditable={(e) => {
-            e.preventDefault();
-            setIsFormEditable(true);
-          }}
         />
       )}
     </div>
