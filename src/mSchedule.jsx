@@ -259,49 +259,25 @@ const MSchedule = ({ navigateBack, scheduleSettings }) => {
             {/* Timed Bookings */}
             <div className="border-t border-gray-700 pt-4">
               <h3 className="text-lg font-semibold text-gray-300 mb-2">Timed Bookings</h3>
-              <div className="relative">
-                {/* Background Time Slots */}
-                {timeSlots.map((time, index) => (
-                  <div key={time} className="flex items-start" style={{ height: `${HOUR_HEIGHT_PX}px` }}>
-                    <div className="w-16 text-sm text-gray-500 pt-[-4px]">{time}</div>
-                    <div className="flex-grow border-t border-gray-700"></div>
-                  </div>
-                ))}
-
-                {/* Absolutely Positioned Bookings */}
-                {timedBookings.map(booking => {
-                  const top = ((booking.startDate.getHours() - scheduleSettings.startHour) * HOUR_HEIGHT_PX) + (booking.startDate.getMinutes() / 60 * HOUR_HEIGHT_PX);
-                  const durationMinutes = (booking.endDate - booking.startDate) / (1000 * 60);
-                  const height = (durationMinutes / 60 * HOUR_HEIGHT_PX) - 2; // -2 for a small gap
-
-                  return (
-                    <div
-                      onClick={() => handleEditBooking(booking)}
-                      key={booking.id}
-                      className={`absolute left-20 right-0 p-2 rounded-lg overflow-hidden cursor-pointer ${getStatusClasses(booking.status, booking.type)} border-l-4 ${booking.status === 'Booked' ? (booking.type === 'Inbound' ? 'border-green-500' : 'border-orange-500') : 'border-gray-500'}`}
-                      style={{ top: `${top}px`, height: `${height}px` }}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="min-w-0 mr-1">
-                          <p className="font-bold text-white text-sm break-words">
-                            {customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}
-                            {booking.contractName && <span className="font-normal text-gray-300"> - {booking.contractName}</span>}
-                            {booking.name && <span className="font-normal text-gray-300"> - {booking.name}</span>}
-                          </p>
-                          {!booking.startDateTime.endsWith('T00:00:00') && (
-                            <p className="text-xs text-gray-400 mt-1">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                          )}
-                        </div>
-                        {booking.expectedPallets > 0 && <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
-                      </div>
-                      <div className="absolute bottom-1 right-1">
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }} className="p-1 text-red-400 hover:text-red-200 opacity-50 hover:opacity-100 rounded-full bg-black/20">
-                          <Trash className="w-3 h-3" />
-                        </button>
+              <div className="space-y-2">
+                {timedBookings.length > 0 ? timedBookings.map(booking => (
+                  <div key={booking.id} className="flex items-center gap-3" onClick={() => handleEditBooking(booking)}>
+                    <div className="w-20 text-center text-gray-400 font-mono text-sm">
+                      <p>{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p>-</p>
+                      <p>{booking.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
+                    <div className={`flex-grow p-3 rounded-lg cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
+                      <div className="flex-grow min-w-0 mr-2">
+                        <p className="break-words">
+                          <span className="font-bold text-white">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                          {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
+                          {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                )) : <p className="text-sm text-gray-500">No timed bookings for this day.</p>}
               </div>
             </div>
           </>
