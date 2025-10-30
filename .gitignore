@@ -8,7 +8,6 @@ server/node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
-.env.local
 
 # Database file
 server/lattice.db
