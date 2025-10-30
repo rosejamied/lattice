@@ -30,6 +30,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const [customers, setCustomers] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [hauliers, setHauliers] = useState([]);
+  const [customerContracts, setCustomerContracts] = useState([]);
   const [bookingToEdit, setBookingToEdit] = useState(null);
   const [isFormEditable, setIsFormEditable] = useState(false);
   const [newBooking, setNewBooking] = useState({
@@ -65,6 +66,21 @@ const ScheduleView = ({ scheduleSettings }) => {
     };
     fetchData();
   }, []);
+
+  // Fetch contracts when a customer is selected in the form
+  React.useEffect(() => {
+    if (newBooking.customer_id) {
+      api.getCustomerContracts(newBooking.customer_id)
+        .then(setCustomerContracts)
+        .catch(err => {
+          console.error("Failed to fetch customer contracts:", err);
+          setCustomerContracts([]); // Reset on error
+        });
+    } else {
+      setCustomerContracts([]); // Clear contracts if no customer is selected
+    }
+  }, [newBooking.customer_id]);
+
   // --- Calendar Logic ---
   const getWeekDays = (date) => {
     // Guard clause to prevent crash on initial render before settings are loaded
@@ -172,7 +188,7 @@ const ScheduleView = ({ scheduleSettings }) => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
 
-    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status'].includes(name)) {
+    if (['name', 'type', 'repeat', 'repeatCount', 'expectedPallets', 'customer_id', 'supplier_id', 'haulier_id', 'status', 'contract_id'].includes(name)) {
       setNewBooking(prev => ({ ...prev, [name]: value }));
       return;
     }
@@ -273,6 +289,7 @@ const ScheduleView = ({ scheduleSettings }) => {
       customer_id: booking.customer_id,
       supplier_id: booking.supplier_id,
       haulier_id: booking.haulier_id,
+      contract_id: booking.contract_id,
       isOpenBooking: booking.startDateTime.endsWith('T00:00:00'),
       repeatCount: 1,
       repeatOnDays: [],
@@ -306,6 +323,7 @@ const ScheduleView = ({ scheduleSettings }) => {
         supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
         haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
         status: newBooking.status || 'Booked',
+        contract_id: newBooking.contract_id || null,
       };
       // Use the new updateBooking function from the hook
       updateBooking(bookingToUpdate);
@@ -334,6 +352,7 @@ const ScheduleView = ({ scheduleSettings }) => {
             expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0,
             customer_id: newBooking.customer_id || null, status: 'Booked',
             supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
+            contract_id: newBooking.contract_id || null,
             haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
             startDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:00` : `${entryDateStr}T${startTime}`,
             endDateTime: newBooking.isOpenBooking ? `${entryDateStr}T00:00:01` : `${entryDateStr}T${endTime}`,
@@ -434,9 +453,9 @@ const ScheduleView = ({ scheduleSettings }) => {
                             style={{ height: `${height}px`, top: `${top}px` }}
                           >
                             <p className="truncate">
-                              <span className="text-gray-400">{booking.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                              <span className="font-bold ml-2">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                              <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
                               {booking.name && <span className="text-gray-300"> - {booking.name}</span>}
+                              {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
                               {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                             </p>
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }} className="absolute bottom-1 right-1 text-red-400 hover:text-red-200 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -470,6 +489,7 @@ const ScheduleView = ({ scheduleSettings }) => {
         onChange={handleFormChange}
         customers={customers}
         suppliers={suppliers}
+        contracts={customerContracts}
         hauliers={hauliers}
         isEditable={isFormEditable}
         onSetEditable={(e) => {
@@ -521,6 +541,7 @@ const ScheduleView = ({ scheduleSettings }) => {
                   <div key={booking.id} onClick={() => handleEditBooking(booking)} className={`p-2 rounded-md text-sm cursor-pointer ${getStatusClasses(booking.status, booking.type)}`}>
                     <p className="truncate">
                       <span className="font-bold">{customers.find(c => c.id === booking.customer_id)?.name || 'No Customer'}</span>
+                      {booking.contractName && <span className="text-gray-200"> - {booking.contractName}</span>}
                       {booking.name && <span className="text-gray-200"> - {booking.name}</span>}
                     </p>
                   </div>

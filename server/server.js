@@ -24,35 +24,6 @@ const db = new sqlite3.Database('./lattice.db', (err) => {
   console.log('Connected to the lattice.db SQLite database.');
 });
 
-// --- SSE (Server-Sent Events) Setup ---
-let clients = [];
-
-const sendEventToAll = (data) => {
-  console.log('Sending event to all clients:', data);
-  clients.forEach(client => client.res.write(`data: ${JSON.stringify(data)}\n\n`));
-};
-
-app.get('/api/events', (req, res) => {
-  // Set headers for SSE
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const clientId = Date.now();
-  const newClient = {
-    id: clientId,
-    res: res,
-  };
-  clients.push(newClient);
-  console.log(`Client ${clientId} connected`);
-
-  req.on('close', () => {
-    console.log(`Client ${clientId} Connection closed`);
-    clients = clients.filter(client => client.id !== clientId);
-  });
-});
-
 // --- Database Schema Migrations ---
 // This is a simple way to handle schema changes without dropping the table.
 db.serialize(() => {
@@ -109,7 +80,7 @@ db.serialize(() => {
 
   // Add contracts table
   db.run(`CREATE TABLE IF NOT EXISTS contracts (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, customer_id TEXT NOT NULL, createdAt TEXT,
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, customer_id TEXT NOT NULL, status TEXT, createdAt TEXT,
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
   )`, (err) => { if (err) { console.error("Error creating contracts table:", err.message); }});
 });
@@ -187,7 +158,6 @@ app.post('/api/bookings', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    sendEventToAll({ type: 'bookings-changed' });
     res.status(201).json(newBookings);
   });
 });
@@ -216,7 +186,6 @@ app.put('/api/bookings/:id', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    sendEventToAll({ type: 'bookings-changed' });
     res.status(this.changes > 0 ? 200 : 404).json({ message: "Booking updated", changes: this.changes });
   });
 });
@@ -228,7 +197,6 @@ app.delete('/api/bookings/:id', (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
-    sendEventToAll({ type: 'bookings-changed' });
     res.status(this.changes > 0 ? 204 : 404).send(); // 204 No Content, or 404 Not Found
   });
 });
@@ -339,7 +307,7 @@ app.delete('/api/inventory/:id', (req, res) => {
 // GET all users
 app.get('/api/users', (req, res) => {
   // Select all fields except passwordHash for security
-  db.all("SELECT id, username, firstName, lastName, role, createdAt FROM users ORDER BY lastName ASC", [], (err, rows) => {
+  db.all("SELECT id, username, firstName, lastName, role, jobTitle, createdAt FROM users ORDER BY lastName ASC", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.status(200).json(rows);
   });
@@ -347,20 +315,21 @@ app.get('/api/users', (req, res) => {
 
 // POST a new user
 app.post('/api/users', (req, res) => {
-  const { id, username, firstName, lastName, role, password, createdAt } = req.body;
+  const { username, firstName, lastName, role, password } = req.body;
 
   // Basic validation
   if (!username || !firstName || !lastName || !role || !password) {
     return res.status(400).json({ message: "Missing required fields." });
   }
 
+  const newUserId = `user_${Date.now()}`; // Generate a unique ID on the server
   // Securely hash the password
   const salt = crypto.randomBytes(16).toString('hex');
   const passwordHash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
   const storedPassword = `${salt}:${passwordHash}`; // Store salt with hash
 
   const sql = `INSERT INTO users (id, username, firstName, lastName, role, passwordHash, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?)`;
-  db.run(sql, [id, username, firstName, lastName, role, storedPassword, createdAt], function(err) {
+  db.run(sql, [newUserId, username, firstName, lastName, role, storedPassword, new Date().toISOString()], function(err) {
     if (err) {
       // Handle unique constraint violation for username
       if (err.message.includes('UNIQUE constraint failed: users.username')) {
@@ -368,7 +337,7 @@ app.post('/api/users', (req, res) => {
       }
       return res.status(500).json({ error: err.message });
     }
-    res.status(201).json({ id, username, firstName, lastName, role, createdAt });
+    res.status(201).json({ id: newUserId, username, firstName, lastName, role, createdAt: new Date().toISOString() });
   });
 });
 
@@ -534,11 +503,12 @@ app.post('/api/contracts', (req, res) => {
   const newContract = {
     id: `cont_${Date.now()}`,
     name,
+    status: 'Active', // Default status to Active
     customer_id,
     createdAt: new Date().toISOString(),
   };
-  const sql = `INSERT INTO contracts (id, name, customer_id, createdAt) VALUES (?, ?, ?, ?)`;
-  db.run(sql, [newContract.id, newContract.name, newContract.customer_id, newContract.createdAt], function(err) {
+  const sql = `INSERT INTO contracts (id, name, status, customer_id, createdAt) VALUES (?, ?, ?, ?, ?)`;
+  db.run(sql, [newContract.id, newContract.name, newContract.status, newContract.customer_id, newContract.createdAt], function(err) {
     if (err) return res.status(500).json({ error: err.message });
     res.status(201).json(newContract);
   });
@@ -639,6 +609,16 @@ app.get('/api/permissions', (req, res) => {
 
     res.status(200).json(rolePermissions);
   });
+});
+
+// --- Roles Routes ---
+
+// GET all available roles
+app.get('/api/roles', (req, res) => {
+  // For now, we'll return a hardcoded list of roles.
+  // This can be moved to a database table later if needed.
+  const roles = ['Admin', 'Manager', 'User', 'Viewer'];
+  res.status(200).json(roles);
 });
 
 // --- Auth Routes ---

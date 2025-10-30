@@ -124,7 +124,7 @@ const UserSettings = () => {
                     <tr key={user.id} className="hover:bg-gray-700/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{`${user.firstName} ${user.lastName}`}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 font-mono">{user.username}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.jobTitle}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.role}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{new Date(user.createdAt).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button onClick={() => handleOpenEditModal(user)} className="text-indigo-400 hover:text-indigo-300 p-1 rounded-full hover:bg-gray-600 transition-colors mr-2" title="Edit User">
