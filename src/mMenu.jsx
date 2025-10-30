@@ -4,10 +4,10 @@ import { Calendar, Package, Boxes, LogOut, UserCircle } from 'lucide-react';
 const MenuButton = ({ icon: Icon, label, onClick }) => (
   <button
     onClick={onClick}
-    className="w-full flex flex-col items-center justify-center p-6 bg-gray-800 rounded-2xl shadow-lg hover:bg-indigo-600 hover:shadow-indigo-500/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1"
+    className="w-full flex flex-col items-center justify-center p-4 bg-gray-800 rounded-2xl shadow-lg hover:bg-indigo-600 hover:shadow-indigo-500/20 transition-all duration-300 ease-in-out transform hover:-translate-y-1"
   >
-    <Icon className="w-12 h-12 mb-3 text-indigo-400" />
-    <span className="text-xl font-semibold text-white">{label}</span>
+    <Icon className="w-10 h-10 mb-2 text-indigo-400" />
+    <span className="text-lg font-semibold text-white">{label}</span>
   </button>
 );
 
@@ -18,18 +18,18 @@ const MMenu = ({ user, onLogout, navigate }) => {
   };
 
   return (
-    <div className="h-screen w-screen bg-gray-900 flex flex-col p-6 font-sans">
-      <header className="text-center mb-8">
+    <div className="h-screen w-screen bg-gray-900 flex flex-col p-4 font-sans">
+      <header className="text-center mb-6">
         <h1 className="text-4xl font-bold text-white">Lattice Mobile</h1>
       </header>
 
-      <main className="flex-grow grid grid-cols-1 gap-6">
+      <main className="flex-grow flex flex-col justify-around gap-4">
         <MenuButton icon={Calendar} label="Schedule" onClick={() => navigate('schedule')} />
         <MenuButton icon={Package} label="Orders" onClick={() => navigate('orders')} />
         <MenuButton icon={Boxes} label="Stock Control" onClick={() => navigate('stock')} />
       </main>
 
-      <footer className="mt-auto pt-6 border-t border-gray-700">
+      <footer className="mt-auto pt-4 border-t border-gray-700">
         <div className="flex items-center p-2 rounded-lg">
           <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-white mr-3">
             {user ? getInitials(user.firstName, user.lastName) : <UserCircle />}
