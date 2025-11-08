@@ -6,24 +6,31 @@ import * as api from './api.jsx'; // Explicitly use the axios-based API file
  */
 export const useWarehouseData = () => {
   const [inventory, setInventory] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [inventoryData, locationsData] = await Promise.all([
+        api.getInventory(),
+        api.getLocations(),
+      ]);
+      setInventory(inventoryData);
+      setLocations(locationsData);
+    } catch (err) {
+      console.error("Failed to load warehouse data from server:", err);
+      setError("Failed to load warehouse data.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Load from the API on mount
   useEffect(() => {
-    const loadInventory = async () => {
-      try {
-        const data = await api.getInventory();
-        setInventory(data);
-      } catch (err) {
-        console.error("Failed to load inventory from server:", err);
-        setError("Failed to load inventory data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadInventory();
-  }, []);
+    loadData();
+  }, [loadData]);
 
   // This function is now just for optimistic UI updates.
   // The actual API calls are handled by the components that trigger them.
@@ -37,5 +44,5 @@ export const useWarehouseData = () => {
     return [...inventory].sort((a, b) => (a.description || '').localeCompare(b.description || ''));
   }, [inventory]);
 
-  return { inventory: sortedInventory, loading, error, updateInventory };
+  return { inventory: sortedInventory, locations, loading, error, updateInventory, refreshData: loadData };
 };

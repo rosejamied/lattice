@@ -7,7 +7,6 @@ const OrderCard = ({ order, onEdit, onDelete }) => {
     switch (status) {
       case 'Pending': return `${baseClasses} bg-yellow-900 text-yellow-300`;
       case 'Processing': return `${baseClasses} bg-blue-900 text-blue-300`;
-      case 'Shipped': return `${baseClasses} bg-purple-900 text-purple-300`;
       case 'Completed': return `${baseClasses} bg-green-900 text-green-300`;
       case 'Cancelled': return `${baseClasses} bg-gray-700 text-gray-400`;
       default: return `${baseClasses} bg-gray-800 text-gray-300`;
@@ -25,7 +24,7 @@ const OrderCard = ({ order, onEdit, onDelete }) => {
       </div>
       <div className="flex justify-between items-center border-t border-gray-700 pt-3">
         <p className="text-xs text-gray-400">
-          Created: {new Date(order.createdAt).toLocaleDateString()}
+          Created: {new Date(order.createdAt).toLocaleDateString('en-GB')}
         </p>
         <div className="flex space-x-2">
           <button onClick={(e) => { e.stopPropagation(); onEdit(order); }} className="text-indigo-400 hover:text-indigo-300 p-1 rounded-full hover:bg-gray-600 transition-colors" title="Edit Order"><Edit className="w-4 h-4" /></button>

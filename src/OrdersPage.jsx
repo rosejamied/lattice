@@ -1,19 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import OrderCard from './OrderCard';
 import OrderForm from './OrderForm'; // Import the new form
-import * as api from './api.jsx';
-import { Package, Plus, Loader } from 'lucide-react';
+import * as api from './api.jsx'; // Import the new form
+import { Package, Plus, Loader, Edit, Trash2 } from 'lucide-react';
 
-const OrdersPage = () => {
-  const [orders, setOrders] = useState([]);
+const OrdersPage = ({ onDataChange, initialInventoryItem, clearInitialInventoryItem }) => {
+  const [orders, setOrders] = useState([]); // This state is now only for this page's list
   const [customers, setCustomers] = useState([]);
   const [view, setView] = useState('active'); // 'active' or 'archived'
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Form state
+  // --- Form and Modal State ---
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [orderToEdit, setOrderToEdit] = useState(null);
+  const [isOrderFormEditable, setIsOrderFormEditable] = useState(false);
+
+  const openOrderModal = (order, isEditable = false) => {
+    setOrderToEdit(order);
+    setIsOrderFormEditable(isEditable);
+    setIsFormOpen(true);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -24,18 +31,26 @@ const OrdersPage = () => {
       setOrders(ordersData);
       setCustomers(customersData);
     }).catch(err => {
+      console.error("Error loading orders or customers:", err); // Log the actual error
       setError("Failed to load page data. Please check server connection.");
     })
       .finally(() => setLoading(false));
   }, []);
 
+  // Effect to open a specific order if an ID is passed from another page
+  useEffect(() => {
+    if (initialInventoryItem?.orderId && orders.length > 0) {
+      const targetOrder = orders.find(o => o.id === initialInventoryItem.orderId);
+      if (targetOrder) {
+        openOrderModal(targetOrder, false); // Open in read-only mode
+      }
+      clearInitialInventoryItem(); // Clear the trigger
+    }
+  }, [initialInventoryItem, orders, clearInitialInventoryItem]);
+
   const handleNewOrder = () => {
     setOrderToEdit(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEditOrder = (order) => {
-    setOrderToEdit(order);
+    setIsOrderFormEditable(true);
     setIsFormOpen(true);
   };
 
@@ -51,16 +66,20 @@ const OrdersPage = () => {
   };
 
   const handleSaveOrder = async (orderData) => {
+    const originalOrders = [...orders]; // Keep a copy in case of error
     try {
       if (orderData.id) { // Updating existing order
         await api.updateOrder(orderData.id, orderData);
-        setOrders(prev => prev.map(o => o.id === orderData.id ? { ...o, ...orderData, customerName: customers.find(c => c.id === orderData.customer_id)?.name } : o));
       } else { // Creating new order
-        const newOrder = await api.addOrder(orderData);
-        setOrders(prev => [newOrder, ...prev]);
+        await api.addOrder(orderData);
       }
-      setIsFormOpen(false);
+      // After saving, re-fetch all orders to get the latest data including pallet counts
+      const updatedOrders = await api.getOrders();
+      setOrders(updatedOrders);
+      setIsFormOpen(false); // Close the form on successful save
+      onDataChange(); // Trigger a full app data refresh
     } catch (err) {
+      setOrders(originalOrders); // Revert on error
       setError("Failed to save order. " + err.message);
     }
   };
@@ -75,6 +94,16 @@ const OrdersPage = () => {
   }, [orders]);
   
   const ordersToDisplay = view === 'active' ? activeOrders : archivedOrders;
+
+  const formatDate = (isoString) => {
+    if (!isoString) return 'N/A';
+    return new Date(isoString).toLocaleDateString('en-GB');
+  };
+
+  const formatTime = (isoString) => {
+    if (!isoString) return 'N/A';
+    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div className="p-4 space-y-6">
@@ -103,9 +132,41 @@ const OrdersPage = () => {
       
       {!loading && !error && (
         ordersToDisplay.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {ordersToDisplay.map(order => <OrderCard key={order.id} order={order} onEdit={handleEditOrder} onDelete={handleDeleteOrder} />)}
-          </div>
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead className="bg-gray-800">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Time</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Customer</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Reference</th>
+                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Pallet Qty</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                <th scope="col" className="relative px-6 py-3">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-gray-900 divide-y divide-gray-700">
+              {ordersToDisplay.map(order => (
+                <tr key={order.id} className="hover:bg-gray-800/50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{formatDate(order.createdAt)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{formatTime(order.createdAt)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{order.customerName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{order.orderNumber}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-white">{order.palletCount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{order.status}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                    <button onClick={() => openOrderModal(order)} className="text-indigo-400 hover:text-indigo-300">
+                      <Edit size={18} />
+                    </button>
+                    <button onClick={() => handleDeleteOrder(order)} className="text-red-500 hover:text-red-400">
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : (
           <p className="text-center text-gray-400 py-10">No {view} orders found.</p>
         )
@@ -116,8 +177,11 @@ const OrdersPage = () => {
         onClose={() => setIsFormOpen(false)}
         onSave={handleSaveOrder}
         orderToEdit={orderToEdit}
+        isEditable={isOrderFormEditable}
+        onSetEditable={() => setIsOrderFormEditable(true)}
         customers={customers}
       />
+
     </div>
   );
 };

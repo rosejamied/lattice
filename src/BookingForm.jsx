@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, ArrowRightLeft } from 'lucide-react';
+import { Plus, X, ArrowRightLeft, Trash, ShoppingCart } from 'lucide-react';
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -10,6 +10,7 @@ const BookingForm = ({
   onClose,
   onSubmit,
   onChange,
+  onDelete,
   customers,
   suppliers,
   hauliers,
@@ -20,6 +21,7 @@ const BookingForm = ({
   const inboundStatuses = ['Booked', 'Arrived', 'Completed'];
   const outboundStatuses = ['Booked', 'Allocated', 'Picked', 'Completed'];
   const statusOptions = newBooking.type === 'Inbound' ? inboundStatuses : outboundStatuses;
+  const isOrderLinked = bookingToEdit && bookingToEdit.id.startsWith('book_from_ord_');
 
   return (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -196,12 +198,21 @@ const BookingForm = ({
             </div>
         </div>
       )}
-      <div className="flex justify-end space-x-3">
+      <div className="flex justify-between items-center pt-4 border-t border-gray-700">
+        <div>
+          {bookingToEdit && ( // Show delete button if editing an existing booking, regardless of form edit mode
+            <button
+              type="button" onClick={() => onDelete(bookingToEdit.id)}
+              className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+            >
+              <Trash className="w-4 h-4 mr-2" /> Delete Booking
+            </button>
+          )}
+        </div>
+        <div className="flex space-x-3">
         <button
           type="button" onClick={onClose}
-          className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors font-medium"
-        >
-          <X className="w-4 h-4 mr-1" /> Close
+          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors font-medium" > Close
         </button>
         {isEditable ? (
           <button
@@ -211,13 +222,29 @@ const BookingForm = ({
             <Plus className="w-4 h-4 mr-1" /> {bookingToEdit ? 'Save Changes' : 'Schedule Booking'}
           </button>
         ) : (
-          <button
-            type="button" onClick={onSetEditable}
-            className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 transition-colors font-medium"
-          >
-            Update Booking
-          </button>
+          <>
+            {isOrderLinked && (
+              <button
+                type="button"
+                onClick={onSetEditable} // This is now wired to trigger onViewOrder
+                className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors font-medium"
+              >
+                <ShoppingCart size={16} className="mr-2" /> View Order
+              </button>
+            )}
+            <button
+              type="button" 
+              onClick={(e) => {
+                e.preventDefault(); // Prevent form submission
+                onSetEditable(e, true); // Pass a flag to indicate edit-only
+              }}
+              className="flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-500 transition-colors font-medium"
+            >
+              Edit Booking
+            </button>
+          </>
         )}
+        </div>
       </div>
     </form>
     </div>

@@ -17,7 +17,10 @@ const handleRequest = async (request) => {
     }
     return response.data; // For all other successful responses, return the data.
   } catch (error) {
-    console.error("API call failed:", error.response ? error.response.data : error.message);
+    // Don't log 404 errors as failures, as the app often handles them gracefully (e.g., using defaults).
+    if (error.response?.status !== 404) {
+      console.error("API call failed:", error.response ? error.response.data : error.message);
+    }
     throw error;
   }
 };
@@ -57,11 +60,11 @@ export const deleteInventoryItem = (id) => {
 };
 
 /**
- * Adds multiple inventory items in bulk.
+ * Processes a full import, including inventory and order creation.
  * @param {Array<object>} items - An array of new inventory items.
  */
-export const bulkAddInventory = (items) => {
-  return handleRequest(axios.post(`${API_BASE_URL}/inventory/bulk`, items));
+export const processFullImport = (items) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/inventory/process-import`, items));
 };
 
 /**
@@ -102,6 +105,13 @@ export const updateBooking = (id, bookingData) => {
  */
 export const deleteBooking = (id) => {
   return handleRequest(axios.delete(`${API_BASE_URL}/bookings/${id}`));
+};
+
+/**
+ * Deletes all bookings.
+ */
+export const clearBookings = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/bookings/all`));
 };
 
 // --- Settings API ---
@@ -391,9 +401,69 @@ export const updateOrder = (id, orderData) => handleRequest(axios.put(`${API_BAS
 export const deleteOrder = (id) => handleRequest(axios.delete(`${API_BASE_URL}/orders/${id}`));
 
 /**
+ * Fetches all inventory items for a specific order.
+ * @param {string} orderId - The ID of the order.
+ */
+export const getOrderItems = (orderId) => handleRequest(axios.get(`${API_BASE_URL}/orders/${orderId}/items`));
+
+/**
+ * Adds a new order item.
+ * @param {object} itemData - The data for the new order item.
+ */
+export const addOrderItem = (itemData) => handleRequest(axios.post(`${API_BASE_URL}/order_items`, itemData));
+
+/**
  * Deletes all orders.
  */
 export const clearOrders = () => {
   // Make a direct axios call to bypass any issues in the handleRequest helper for this specific case.
   return axios.delete(`${API_BASE_URL}/orders/all`);
 };
+
+// --- Master Data Clear API ---
+
+/**
+ * Deletes all application data except for users and roles.
+ */
+export const clearAllDataExceptUsers = () => handleRequest(axios.delete(`${API_BASE_URL}/data/all-except-users`));
+
+// --- Location API ---
+
+/**
+ * Adds multiple locations in bulk.
+ * @param {Array<string>} locations - An array of location names.
+ */
+export const addBulkLocations = (locations) => handleRequest(axios.post(`${API_BASE_URL}/locations/bulk`, { locations }));
+
+/**
+ * Fetches all locations from the server.
+ */
+export const getLocations = () => handleRequest(axios.get(`${API_BASE_URL}/locations`));
+
+/**
+ * Updates a specific location's settings.
+ * @param {string} id - The ID of the location to update.
+ * @param {object} settings - The settings to update { capacity, enabled }.
+ */
+export const updateLocation = (id, settings) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/locations/${id}`, settings));
+};
+
+/**
+ * Updates the capacity for multiple locations at once.
+ * @param {Array<string>} locationIds - The IDs of the locations to update.
+ * @param {number} capacity - The new capacity to set.
+ */
+export const updateBulkLocationCapacity = (locationIds, capacity) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/locations/bulk-update`, { locationIds, capacity }));
+};
+
+/**
+ * Fetches the location format settings.
+ */
+export const getLocationFormat = () => handleRequest(axios.get(`${API_BASE_URL}/settings/location-format`));
+
+/**
+ * Updates the location format settings.
+ */
+export const updateLocationFormat = (settings) => handleRequest(axios.put(`${API_BASE_URL}/settings/location-format`, settings));

@@ -1,35 +1,36 @@
 import React from 'react';
-import { LayoutDashboard, Calendar, Package, Boxes, Settings, LogOut, ChevronLeft, ChevronRight, UserCircle } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Calendar, Package, List, Settings, LogOut, ChevronLeft, ChevronRight, UserCircle } from 'lucide-react';
 
-// A reusable component for each navigation item
-const NavItem = ({ icon: Icon, label, page, currentPage, navigate, isOpen }) => (
-  <button
-    onClick={() => navigate(page)}
-    className={`flex items-center w-full px-4 py-3 rounded-lg transition-colors duration-200 ${
-      currentPage === page
-        ? 'bg-indigo-600 text-white shadow-md'
-        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-    }`}
-  >
-    <Icon className="w-6 h-6" />
-    {isOpen && <span className="ml-4 font-medium whitespace-nowrap">{label}</span>}
-  </button>
-);
+const Sidebar = ({ isOpen, toggle, onLogout, user }) => {
+  const navItems = [
+    { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { to: "/schedule", icon: Calendar, label: "Schedule" },
+    { to: "/orders", icon: Package, label: "Orders" },
+    { to: "/inventory", icon: List, label: "Inventory" },
+    { to: "/settings", icon: Settings, label: "Settings" },
+  ];
 
-const Sidebar = ({ isOpen, toggle, currentPage, navigate, onLogout, user }) => {
   const getInitials = (firstName, lastName) => {
     if (!firstName || !lastName) return '?';
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  // Define the navigation items in the desired order
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', page: 'dashboard' },
-    { icon: Calendar, label: 'Schedule', page: 'schedule' },
-    { icon: Package, label: 'Orders', page: 'orders' },
-    { icon: Boxes, label: 'Inventory', page: 'inventory' },
-    { icon: Settings, label: 'Settings', page: 'settings' },
-  ];
+  const NavItem = ({ to, icon: Icon, label }) => (
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `flex items-center w-full px-4 py-3 rounded-lg transition-colors duration-200 ${
+          isActive
+            ? 'bg-indigo-600 text-white shadow-md'
+            : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+        }`
+      }
+    >
+      <Icon className="w-6 h-6" />
+      {isOpen && <span className="ml-4 font-medium whitespace-nowrap">{label}</span>}
+    </NavLink>
+  );
 
   return (
     <div className={`relative flex flex-col bg-gray-800 text-white transition-all duration-300 ease-in-out ${isOpen ? 'w-64' : 'w-20'}`}>
@@ -43,13 +44,7 @@ const Sidebar = ({ isOpen, toggle, currentPage, navigate, onLogout, user }) => {
       {/* Main Navigation */}
       <nav className="flex-grow px-4 py-4 space-y-2">
         {navItems.map(item => (
-          <NavItem
-            key={item.page}
-            isOpen={isOpen}
-            currentPage={currentPage}
-            navigate={navigate}
-            {...item}
-          />
+          <NavItem key={item.to} {...item} />
         ))}
       </nav>
 

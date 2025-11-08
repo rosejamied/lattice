@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader } from 'lucide-react';
+import { Routes, Route, Outlet, useNavigate as useReactRouterNavigate } from 'react-router-dom';
 
 import { usePermissions } from './usePermissions';
 import LoginPage from './LoginPage'; // Import the new Login Page
@@ -10,9 +11,10 @@ import * as api from './api.jsx'; // Explicitly use the axios-based API file
 // --- Components ---
 import Sidebar from './Sidebar.jsx';
 import Dashboard from './Dashboard';
-import ScheduleView from './ScheduleView';
-import SettingsPage from './SettingsPage'; // Added Settings Page
-import InventoryHoldingPage from './InventoryHoldingPage';
+import InventoryList from './InventoryList.jsx';
+import ScheduleView from './ScheduleView.jsx';
+import SettingsPage from './SettingsPage.jsx';
+import OfficeDisplay from './officedisplay/OfficeDisplay.jsx';
 import OrdersPage from './OrdersPage'; // Import the new Orders page
 
 // --- Mobile Components ---
@@ -38,12 +40,14 @@ const App = () => {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [customers, setCustomers] = useState([]);
 
   // --- Page State ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentPage, setCurrentPage] = useState('dashboard');
   const [mobilePage, setMobilePage] = useState('menu'); // 'menu', 'schedule', 'orders', 'stock'
+  const [orderCreationInitialInventoryItem, setOrderCreationInitialInventoryItem] = useState(null);
   const [itemToEdit, setItemToEdit] = useState(null);
+
   const [scheduleSettings, setScheduleSettings] = useState({
     // Default to Monday-Friday visible
     visibleDays: [1, 2, 3, 4, 5], // Sunday: 0, Saturday: 6
@@ -54,6 +58,7 @@ const App = () => {
 
   // --- Responsive Hook ---
   const isMobile = useIsMobile();
+  const navigate = useReactRouterNavigate();
 
   // --- Permissions Hook ---
   const can = usePermissions(user);
@@ -80,6 +85,10 @@ const App = () => {
         .catch(err => {
           console.log("No schedule settings found on server, using defaults.", err.message);
         });
+      
+      api.getCustomers()
+        .then(setCustomers)
+        .catch(err => console.error("Failed to fetch customers in App.jsx", err));
     }
   }, [user]);
 
@@ -104,18 +113,18 @@ const App = () => {
   };
 
   // Data Hook
-  const { inventory, loading, error, updateInventory } = useWarehouseData();
+  const { inventory, locations, loading, error, updateInventory, refreshData } = useWarehouseData();
 
   // View Handlers
-  const navigate = (page, item = null) => {
-    setItemToEdit(item);
-    setCurrentPage(page);
-  };
-
   const mobileNavigate = (page) => {
     setMobilePage(page);
   };
 
+  // --- Handler to view an order from another page ---
+  const handleViewOrder = useCallback((orderId) => {
+    setOrderCreationInitialInventoryItem({ orderId: orderId });
+    navigate('/orders');
+  }, [navigate]);
 
   // CRUD Operations
   const handleSaveItem = useCallback((itemData) => {
@@ -149,8 +158,7 @@ const App = () => {
         console.error("Failed to add item:", err);
       });
     }
-    // The view will be handled by the InventoryHoldingPage component itself
-  }, [inventory, updateInventory, navigate]);
+  }, [inventory, updateInventory]);
 
   const handleDeleteItem = useCallback((item) => {
     if (!window.confirm(`Are you sure you want to delete the pallet "${item.name}"? This action is irreversible.`)) return;
@@ -170,37 +178,10 @@ const App = () => {
     api.updateScheduleSettings(newSettings).catch(err => console.error("Failed to save settings:", err));
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-indigo-400">
-          <Loader className="w-12 h-12 animate-spin mb-4" />
-          <p>Loading warehouse data...</p>
-        </div>
-      );
-    }
-
-    switch (currentPage) {
-      case 'dashboard':
-        return <Dashboard inventory={inventory} />;
-      case 'inventory': // The 'inventory' case will now handle both list and form views
-        return <InventoryHoldingPage 
-          inventory={inventory} 
-          onSave={handleSaveItem} 
-          onDelete={handleDeleteItem} 
-          loading={loading} 
-          error={error} 
-        />;
-      case 'orders':
-        return <OrdersPage />;
-      case 'schedule':
-        return <ScheduleView user={user} scheduleSettings={scheduleSettings} />; // Pass settings to ScheduleView
-      case 'settings':
-        return <SettingsPage user={user} scheduleSettings={scheduleSettings} onScheduleSettingsChange={handleScheduleSettingsChange} />;
-      default:
-        return <Dashboard inventory={inventory} />;
-    }
-  };
+  const handleInitiateOrderCreation = useCallback((item) => {
+    setOrderCreationInitialInventoryItem(item);
+    navigate('/orders');
+  }, [navigate]);
 
   // --- Mobile View Rendering ---
   if (isMobile) {
@@ -212,9 +193,18 @@ const App = () => {
       case 'schedule':
         return <MSchedule navigateBack={() => mobileNavigate('menu')} scheduleSettings={scheduleSettings} />;
       case 'orders':
-        return <MOrders navigateBack={() => mobileNavigate('menu')} />;
+        return <MOrders 
+          navigateBack={() => mobileNavigate('menu')} 
+          onViewOrder={handleViewOrder} 
+          customers={customers} 
+        />;
       case 'stock':
-        return <MStock navigateBack={() => mobileNavigate('menu')} />;
+        return <MStock 
+          navigateBack={() => mobileNavigate('menu')} 
+          inventory={inventory} 
+          locations={locations}
+          customers={customers}
+        />;
       case 'menu':
       default:
         return <MMenu user={user} onLogout={handleLogout} navigate={mobileNavigate} />;
@@ -228,20 +218,65 @@ const App = () => {
     return <LoginPage onLogin={handleLogin} error={authError} loading={authLoading} />;
   }
 
-  // If logged in, show the main application.
-  return (
+  // --- Layout Component for Desktop View ---
+  const MainLayout = () => (
     <div className="h-screen bg-gray-900 text-gray-100 flex font-sans antialiased overflow-hidden">
       <Sidebar
         isOpen={isSidebarOpen}
         toggle={() => setIsSidebarOpen(!isSidebarOpen)}
-        currentPage={currentPage}
-        navigate={navigate}
         onLogout={handleLogout} user={user}
       />
       <main className="flex-grow overflow-y-auto">
-        {renderContent()}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full text-indigo-400">
+            <Loader className="w-12 h-12 animate-spin mb-4" />
+            <p>Loading warehouse data...</p>
+          </div>
+        ) : (
+          <Outlet /> // Nested routes will render here
+        )}
       </main>
     </div>
+  );
+
+  // If logged in, show the main application.
+  return (
+    <Routes>
+      {/* Standalone route for the office display */}
+      <Route path="/display" element={<OfficeDisplay />} />
+
+      {/* All other routes use the MainLayout with the sidebar */}
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<Dashboard inventory={inventory} />} />
+        <Route path="/dashboard" element={<Dashboard inventory={inventory} />} />
+        <Route path="/inventory" element={
+          <InventoryList 
+            inventory={inventory} 
+            onSave={handleSaveItem} 
+            onDelete={handleDeleteItem} 
+            loading={loading} 
+            error={error}
+            onInitiateOrderCreation={handleInitiateOrderCreation}
+            customers={customers}
+          />
+        } />
+        <Route path="/orders" element={
+          <OrdersPage
+            initialInventoryItem={orderCreationInitialInventoryItem}
+            clearInitialInventoryItem={() => setOrderCreationInitialInventoryItem(null)}
+            onDataChange={refreshData}
+          />
+        } />
+        <Route path="/schedule" element={
+          <ScheduleView 
+            user={user} 
+            scheduleSettings={scheduleSettings} 
+            onViewOrder={handleViewOrder}
+          />
+        } />
+        <Route path="/settings" element={<SettingsPage user={user} scheduleSettings={scheduleSettings} onScheduleSettingsChange={handleScheduleSettingsChange} />} />
+      </Route>
+    </Routes>
   );
 };
 

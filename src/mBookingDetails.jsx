@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Trash } from 'lucide-react';
 
 const DetailRow = ({ label, value }) => (
   <div className="flex justify-between items-center py-3 border-b border-gray-700">
@@ -8,7 +8,7 @@ const DetailRow = ({ label, value }) => (
   </div>
 );
 
-const mBookingDetails = ({ isOpen, onClose, onUpdateStatus, booking, customers }) => {
+const mBookingDetails = ({ isOpen, onClose, onUpdateStatus, onDelete, booking, customers }) => {
   const [currentStatus, setCurrentStatus] = useState('');
 
   useEffect(() => {
@@ -62,17 +62,24 @@ const mBookingDetails = ({ isOpen, onClose, onUpdateStatus, booking, customers }
           </select>
         </div>
 
-        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-700">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-gray-300 hover:text-white">
-            Close
-          </button>
-          <button 
-            type="button" 
-            onClick={handleUpdate}
-            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            <Save size={16} className="mr-2" /> Update
-          </button>
+        <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-700">
+          <div>
+            <button type="button" onClick={() => onDelete(booking.id)} className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+              <Trash className="w-4 h-4 mr-2" /> Delete
+            </button>
+          </div>
+          <div className="flex space-x-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-300 hover:text-white">
+              Close
+            </button>
+            <button 
+              type="button" 
+              onClick={handleUpdate}
+              className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              <Save size={16} className="mr-2" /> Update
+            </button>
+          </div>
         </div>
       </div>
     </div>

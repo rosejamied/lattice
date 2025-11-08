@@ -23,7 +23,7 @@ const getStatusClasses = (status, type) => {
 };
 
 // Schedule View (Updated Component)
-const ScheduleView = ({ scheduleSettings }) => {
+const ScheduleView = ({ scheduleSettings, onViewOrder }) => {
   const { bookings, loading, addBooking, deleteBooking, updateBooking, updateBookings } = useScheduleData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -159,6 +159,25 @@ const ScheduleView = ({ scheduleSettings }) => {
         const date = new Date(booking.startDateTime);
         const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
         if (!map[key]) map[key] = [];
+        map[key].push(booking);
+      }
+    });
+    return map;
+  }, [bookings]);
+
+  const bookingsByHour = React.useMemo(() => {
+    const map = {};
+    bookings.forEach(booking => {
+      const startDate = new Date(booking.startDateTime);
+      const endDate = new Date(booking.endDateTime);
+      const startHour = startDate.getHours();
+      const endHour = endDate.getMinutes() === 0 ? endDate.getHours() - 1 : endDate.getHours();
+
+      for (let hour = startHour; hour <= endHour; hour++) {
+        const key = `${startDate.getFullYear()}-${startDate.getMonth()}-${startDate.getDate()}-${hour}`;
+        if (!map[key]) {
+          map[key] = [];
+        }
         map[key].push(booking);
       }
     });
@@ -348,9 +367,9 @@ const ScheduleView = ({ scheduleSettings }) => {
           newEntries.push({
             id: `${seriesId}-${week}-${dayIndex}`, // Unique ID for each instance
             seriesId: seriesId,
-            name: newBooking.name, type: newBooking.type, status: 'Scheduled',
+            name: newBooking.name, type: newBooking.type,
             expectedPallets: parseInt(newBooking.expectedPallets, 10) || 0,
-            customer_id: newBooking.customer_id || null, status: 'Booked',
+            customer_id: newBooking.customer_id || null, status: 'Booked', // Set default status to 'Booked'
             supplier_id: newBooking.type === 'Inbound' ? newBooking.supplier_id || null : null,
             contract_id: newBooking.contract_id || null,
             haulier_id: newBooking.type === 'Outbound' ? newBooking.haulier_id || null : null,
@@ -369,6 +388,7 @@ const ScheduleView = ({ scheduleSettings }) => {
     if (!window.confirm("Are you sure you want to delete this booking?")) return;
     // Use the deleteBooking function from the hook
     deleteBooking(id);
+    setIsFormOpen(false); // Close the form after deleting
   };
 
   return (
@@ -418,19 +438,20 @@ const ScheduleView = ({ scheduleSettings }) => {
                 <React.Fragment key={time}>
                   {weekDays.map(day => {
                     const slotKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}-${parseInt(time)}`;
-                    const slotBookings = bookingsBySlot[slotKey] || [];
+                    const bookingsStartingInSlot = bookingsBySlot[slotKey] || [];
+                    const allBookingsInHour = bookingsByHour[slotKey] || [];
                     const rowMultiplier = rowMultipliers[time] || 1;
                     const slotHeight = 40 * rowMultiplier; // 40px (h-10) * multiplier
 
                     return (
-                      <div
-                        key={`${day.toISOString()}-${time}`}
-                        onClick={() => openFormForSlot(day, parseInt(time))}
-                        className="relative border-b border-l border-gray-700 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer"
-                        style={{ height: `${slotHeight}px` }}
-                      >
+                      <div key={`${day.toISOString()}-${time}`} className="relative border-b border-l border-gray-700" style={{ height: `${slotHeight}px` }}>
+                        {/* Clickable background cell */}
+                        <div onClick={() => openFormForSlot(day, parseInt(time))} className="absolute inset-0 p-1 hover:bg-gray-700/50 transition-colors cursor-pointer">
                         <span className="absolute top-0 left-1 text-xs text-gray-600">{time.split(':')[0]}</span>
-                        {slotBookings.map((booking, index) => {
+                        </div>
+
+                        {/* Render actual booking elements only in their starting slot */}
+                        {bookingsStartingInSlot.map((booking, index) => {
                           let top, height;
                           const baseSlotHeight = 40; // Corresponds to h-10
 
@@ -448,7 +469,8 @@ const ScheduleView = ({ scheduleSettings }) => {
                           return (
                           <div
                             key={booking.id}
-                            onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                            id={`booking-${booking.id}`} // Add an ID for targeting
+                            onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }} // prettier-ignore
                             className={`group absolute left-1 right-1 p-1.5 rounded-md text-xs cursor-pointer overflow-hidden ${getStatusClasses(booking.status, booking.type).replace('border-l-2', 'border-l-4')}`}
                             style={{ height: `${height}px`, top: `${top}px` }}
                           >
@@ -458,12 +480,30 @@ const ScheduleView = ({ scheduleSettings }) => {
                               {booking.contractName && <span className="text-gray-300"> - {booking.contractName}</span>}
                               {booking.expectedPallets > 0 && <span className="ml-2 px-1.5 py-0.5 text-xs rounded bg-gray-900/50">{booking.expectedPallets}</span>}
                             </p>
+                            {/* The delete button is now correctly placed inside the booking div,
+                                 and its visibility is controlled by the 'group-hover' class on the parent div. */}
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteBooking(booking.id); }} className="absolute bottom-1 right-1 text-red-400 hover:text-red-200 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Trash className="w-3 h-3" />
                             </button>
                           </div>
                           );
                         })}
+
+                        {/* Render "ghost" elements for hover effects on multi-slot bookings */}
+                        {allBookingsInHour
+                          .filter(b => !bookingsStartingInSlot.some(start => start.id === b.id))
+                          .map(booking => (
+                            <div
+                              key={`ghost-${booking.id}`}
+                              className="absolute inset-0"
+                              onMouseEnter={() => document.getElementById(`booking-${booking.id}`)?.classList.add('group')}
+                              onMouseLeave={() => document.getElementById(`booking-${booking.id}`)?.classList.remove('group')}
+                              onClick={(e) => { e.stopPropagation(); handleEditBooking(booking); }}
+                            >
+                              {/* This div is invisible but captures mouse events */}
+                            </div>
+                          ))
+                        }
                       </div>
                     );
                   })}
@@ -486,15 +526,22 @@ const ScheduleView = ({ scheduleSettings }) => {
         bookingFormData={bookingFormData}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleAddBooking}
+        onDelete={handleDeleteBooking}
         onChange={handleFormChange}
         customers={customers}
         suppliers={suppliers}
         contracts={customerContracts}
         hauliers={hauliers}
         isEditable={isFormEditable}
-        onSetEditable={(e) => {
+        onSetEditable={(e, editOnly = false) => {
           e.preventDefault();
-          setIsFormEditable(true);
+          if (editOnly) {
+            // Just make the form editable
+            setIsFormEditable(true);
+          } else {
+            // The default action is to view the order
+            onViewOrder(bookingToEdit.id.replace('book_from_', ''));
+          }
         }}
       />
       }

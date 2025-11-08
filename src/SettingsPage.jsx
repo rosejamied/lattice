@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Settings, Calendar, Users, ShieldAlert, Building, KeyRound, X } from 'lucide-react';
+import { Settings, Calendar, Users, ShieldAlert, Building, KeyRound, X, LayoutGrid } from 'lucide-react';
 import { usePermissions } from './usePermissions';
 import UserSettings from './UserSettings';
 import AdvancedSettings from './AdvancedSettings';
 import CustomerSettings from './CustomerSettings';
 import RoleSettings from './RoleSettings';
+import WarehouseVisualizer from './WarehouseVisualizer'; // Import the new component
 
 const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -88,6 +89,7 @@ const SettingsPage = ({ user, scheduleSettings, onScheduleSettingsChange }) => {
   const allTabs = [
     { id: 'customers', label: 'Customers', icon: Building, permission: 'manage-customers' },
     { id: 'users', label: 'Users', icon: Users, permission: 'manage-users' },
+    { id: 'layout', label: 'Layout', icon: LayoutGrid, permission: 'manage-settings' },
     { id: 'advanced', label: 'Advanced', icon: ShieldAlert, permission: 'manage-settings' },
   ];
 
@@ -121,6 +123,9 @@ const SettingsPage = ({ user, scheduleSettings, onScheduleSettingsChange }) => {
       <div className="bg-gray-800 p-6 rounded-xl shadow-lg">
         {activeTab === 'users' && (
           <UserSettings user={user} />
+        )}
+        {activeTab === 'layout' && (
+          <WarehouseVisualizer />
         )}
         {activeTab === 'advanced' && (
           <AdvancedSettings 
