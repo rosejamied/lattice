@@ -1,0 +1,461 @@
+import axios from 'axios';
+
+// The base URL for your local network server.
+const API_BASE_URL = '/api';
+
+/**
+ * A helper function to handle API requests and errors.
+ * @param {Promise} request - The axios request promise.
+ * @returns {Promise<any>} - The data from the response.
+ */
+const handleRequest = async (request) => {
+  try {
+    const response = await request;
+    // If the status is 204 (No Content), there's no data to return.
+    if (response.status === 204) {
+      return;
+    }
+    return response.data; // For all other successful responses, return the data.
+  } catch (error) {
+    // Don't log 404 errors as failures, as the app often handles them gracefully (e.g., using defaults).
+    if (error.response?.status !== 404) {
+      console.error("API call failed:", error.response ? error.response.data : error.message);
+    }
+    throw error;
+  }
+};
+
+// --- Inventory API ---
+
+/**
+ * Fetches all inventory items from the server.
+ */
+export const getInventory = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/inventory`));
+};
+
+/**
+ * Adds a new inventory item.
+ * @param {object} item - The new inventory item data.
+ */
+export const addInventoryItem = (item) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/inventory`, item));
+};
+
+/**
+ * Updates an existing inventory item by its ID.
+ * @param {string} id - The ID of the item to update.
+ * @param {object} item - The updated inventory item data.
+ */
+export const updateInventoryItem = (id, item) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/inventory/${id}`, item));
+};
+
+/**
+ * Deletes an inventory item by its ID.
+ * @param {string} id - The ID of the item to delete.
+ */
+export const deleteInventoryItem = (id) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/inventory/${id}`));
+};
+
+/**
+ * Processes a full import, including inventory and order creation.
+ * @param {Array<object>} items - An array of new inventory items.
+ */
+export const processFullImport = (items) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/inventory/process-import`, items));
+};
+
+/**
+ * Deletes all inventory items.
+ */
+export const clearInventory = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/inventory/all`));
+};
+// --- Bookings API ---
+
+/**
+ * Fetches all bookings from the server.
+ */
+export const getBookings = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/bookings`));
+};
+
+/**
+ * Adds one or more new bookings.
+ * @param {Array<object>} bookings - An array of new booking objects.
+ */
+export const addBooking = (bookings) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/bookings`, bookings));
+};
+
+/**
+ * Updates an existing booking by its ID.
+ * @param {string} id - The ID of the booking to update.
+ * @param {object} bookingData - The updated booking data.
+ */
+export const updateBooking = (id, bookingData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/bookings/${id}`, bookingData));
+};
+
+/**
+ * Deletes a booking by its ID.
+ * @param {string} id - The ID of the booking to delete.
+ */
+export const deleteBooking = (id) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/bookings/${id}`));
+};
+
+/**
+ * Deletes all bookings.
+ */
+export const clearBookings = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/bookings/all`));
+};
+
+// --- Settings API ---
+
+/**
+ * Fetches the schedule settings.
+ */
+export const getScheduleSettings = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/settings/schedule`));
+};
+
+/**
+ * Updates the schedule settings.
+ * @param {object} settings - The new settings object.
+ */
+export const updateScheduleSettings = (settings) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/settings/schedule`, settings));
+};
+
+// --- Users API ---
+
+/**
+ * Fetches all users from the server.
+ */
+export const getUsers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/users`));
+};
+
+/**
+ * Adds a new user.
+ * @param {object} userData - The new user data, including password.
+ */
+export const addUser = (userData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/users`, userData));
+};
+
+/**
+ * Updates an existing user's details.
+ * @param {string} id - The ID of the user to update.
+ * @param {object} userData - The updated user data.
+ */
+export const updateUser = (id, userData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/users/${id}`, userData));
+};
+
+/**
+ * Deletes a user by their ID.
+ * @param {string} id - The ID of the user to delete.
+ */
+export const deleteUser = (id) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/users/${id}`));
+};
+
+/**
+ * Changes a user's password.
+ * @param {string} id - The ID of the user.
+ * @param {string} password - The new password.
+ */
+export const changeUserPassword = (id, password) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/users/${id}/password`, { password }));
+};
+
+// --- Auth API ---
+
+/**
+ * Authenticates a user and returns a token and user object.
+ * @param {object} credentials - The user's credentials { username, password }.
+ */
+export const login = (credentials) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/login`, credentials));
+};
+
+/**
+ * Checks with the server if the initial admin user setup is required.
+ * This is typically true if the user database is empty.
+ */
+export const checkInitialSetup = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/setup/status`));
+};
+
+/**
+ * Creates the very first administrator account during initial setup.
+ * @param {object} adminData - The data for the new admin user.
+ */
+export const createInitialAdmin = (adminData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/setup/create-admin`, adminData));
+};
+
+// --- Customers API ---
+
+/**
+ * Fetches all customers from the server.
+ */
+export const getCustomers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers`));
+};
+
+/**
+ * Adds a new customer.
+ * @param {object} customerData - The new customer data { name }.
+ */
+export const addCustomer = (customerData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/customers`, customerData));
+};
+
+/**
+ * Updates an existing customer's details.
+ * @param {string} id - The ID of the customer to update.
+ * @param {object} customerData - The updated customer data.
+ */
+export const updateCustomer = (id, customerData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/customers/${id}`, customerData));
+};
+
+/**
+ * Deletes a customer by its ID.
+ * @param {string} id - The ID of the customer to delete.
+ */
+export const deleteCustomer = (id) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/customers/${id}`));
+};
+
+/**
+ * Fetches an array of supplier IDs for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ */
+export const getCustomerSuppliers = (customerId) => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers/${customerId}/suppliers`));
+};
+
+/**
+ * Updates the list of suppliers for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ * @param {Array<string>} supplierIds - An array of supplier IDs to associate.
+ */
+export const updateCustomerSuppliers = (customerId, supplierIds) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/customers/${customerId}/suppliers`, { supplierIds }));
+};
+
+/**
+ * Fetches an array of haulier IDs for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ */
+export const getCustomerHauliers = (customerId) => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers/${customerId}/hauliers`));
+};
+
+/**
+ * Updates the list of hauliers for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ * @param {Array<string>} haulierIds - An array of haulier IDs to associate.
+ */
+export const updateCustomerHauliers = (customerId, haulierIds) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/customers/${customerId}/hauliers`, { haulierIds }));
+};
+
+// --- Contracts API ---
+
+/**
+ * Fetches all contracts for a given customer.
+ * @param {string} customerId - The ID of the customer.
+ */
+export const getCustomerContracts = (customerId) => {
+  return handleRequest(axios.get(`${API_BASE_URL}/customers/${customerId}/contracts`));
+};
+
+/**
+ * Adds a new contract for a customer.
+ * @param {object} contractData - The new contract data { name, customer_id }.
+ */
+export const addContract = (contractData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/contracts`, contractData));
+};
+
+/**
+ * Deletes a contract by its ID.
+ * @param {string} contractId - The ID of the contract to delete.
+ */
+export const deleteContract = (contractId) => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/contracts/${contractId}`));
+};
+
+// --- Roles API ---
+
+/**
+ * Fetches all defined roles from the server.
+ */
+export const getRoles = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/roles`));
+};
+
+/**
+ * Adds a new role.
+ * @param {string} name - The name of the new role.
+ */
+export const addRole = (name) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/roles`, { name }));
+};
+
+// --- Suppliers API ---
+
+/**
+ * Fetches all suppliers from the server.
+ */
+export const getSuppliers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/suppliers`));
+};
+
+/**
+ * Adds a new supplier.
+ */
+export const addSupplier = (supplierData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/suppliers`, supplierData));
+};
+
+/**
+ * Updates an existing supplier.
+ * @param {string} id - The ID of the supplier to update.
+ * @param {object} supplierData - The updated supplier data.
+ */
+export const updateSupplier = (id, supplierData) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/suppliers/${id}`, supplierData));
+};
+
+/**
+ * Deletes all suppliers.
+ */
+export const clearSuppliers = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/suppliers/all`));
+};
+
+// --- Hauliers API ---
+
+/**
+ * Fetches all hauliers from the server.
+ */
+export const getHauliers = () => {
+  return handleRequest(axios.get(`${API_BASE_URL}/hauliers`));
+};
+
+/**
+ * Adds a new haulier.
+ */
+export const addHaulier = (haulierData) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/hauliers`, haulierData));
+};
+
+/**
+ * Deletes all hauliers.
+ */
+export const clearHauliers = () => {
+  return handleRequest(axios.delete(`${API_BASE_URL}/hauliers/all`));
+};
+
+// --- Orders API ---
+
+/**
+ * Fetches all orders from the server.
+ */
+export const getOrders = () => handleRequest(axios.get(`${API_BASE_URL}/orders`));
+
+/**
+ * Adds a new order.
+ * @param {object} orderData - The data for the new order.
+ */
+export const addOrder = (orderData) => handleRequest(axios.post(`${API_BASE_URL}/orders`, orderData));
+
+/**
+ * Updates an existing order.
+ * @param {string} id - The ID of the order to update.
+ * @param {object} orderData - The updated order data.
+ */
+export const updateOrder = (id, orderData) => handleRequest(axios.put(`${API_BASE_URL}/orders/${id}`, orderData));
+
+/**
+ * Deletes an order by its ID.
+ * @param {string} id - The ID of the order to delete.
+ */
+export const deleteOrder = (id) => handleRequest(axios.delete(`${API_BASE_URL}/orders/${id}`));
+
+/**
+ * Fetches all inventory items for a specific order.
+ * @param {string} orderId - The ID of the order.
+ */
+export const getOrderItems = (orderId) => handleRequest(axios.get(`${API_BASE_URL}/orders/${orderId}/items`));
+
+/**
+ * Adds a new order item.
+ * @param {object} itemData - The data for the new order item.
+ */
+export const addOrderItem = (itemData) => handleRequest(axios.post(`${API_BASE_URL}/order_items`, itemData));
+
+/**
+ * Deletes all orders.
+ */
+export const clearOrders = () => {
+  // Make a direct axios call to bypass any issues in the handleRequest helper for this specific case.
+  return axios.delete(`${API_BASE_URL}/orders/all`);
+};
+
+// --- Master Data Clear API ---
+
+/**
+ * Deletes all application data except for users and roles.
+ */
+export const clearAllDataExceptUsers = () => handleRequest(axios.delete(`${API_BASE_URL}/data/all-except-users`));
+
+// --- Location API ---
+
+/**
+ * Adds multiple locations in bulk.
+ * @param {Array<string>} locations - An array of location names.
+ */
+export const addBulkLocations = (locations) => handleRequest(axios.post(`${API_BASE_URL}/locations/bulk`, { locations }));
+
+/**
+ * Fetches all locations from the server.
+ */
+export const getLocations = () => handleRequest(axios.get(`${API_BASE_URL}/locations`));
+
+/**
+ * Updates a specific location's settings.
+ * @param {string} id - The ID of the location to update.
+ * @param {object} settings - The settings to update { capacity, enabled }.
+ */
+export const updateLocation = (id, settings) => {
+  return handleRequest(axios.put(`${API_BASE_URL}/locations/${id}`, settings));
+};
+
+/**
+ * Updates the capacity for multiple locations at once.
+ * @param {Array<string>} locationIds - The IDs of the locations to update.
+ * @param {number} capacity - The new capacity to set.
+ */
+export const updateBulkLocationCapacity = (locationIds, capacity) => {
+  return handleRequest(axios.post(`${API_BASE_URL}/locations/bulk-update`, { locationIds, capacity }));
+};
+
+/**
+ * Fetches the location format settings.
+ */
+export const getLocationFormat = () => handleRequest(axios.get(`${API_BASE_URL}/settings/location-format`));
+
+/**
+ * Updates the location format settings.
+ */
+export const updateLocationFormat = (settings) => handleRequest(axios.put(`${API_BASE_URL}/settings/location-format`, settings));

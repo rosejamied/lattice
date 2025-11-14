@@ -1,0 +1,22 @@
+# Dependencies
+/node_modules
+/server/node_modules
+
+# Build artifacts
+/dist
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# SQLite Database
+/server/lattice.db
+
+# Environment variables
+.env
+.env.local
+
+# IDE and OS files
+.DS_Store
+.vscode/
